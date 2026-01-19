@@ -24,6 +24,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -183,29 +184,31 @@ fun CheckoutScreen(
 
                         ordersViewModel.createOrderFromCart(cartItems) { order: Order? ->
                             if (order != null) {
-                                val items = cartItems.map {
-                                    ReceiptItem(
-                                        name = it.product.name,
-                                        quantity = it.quantity,
-                                        unitPrice = it.product.price
+                                scope.launch {
+                                    val items = cartItems.map {
+                                        ReceiptItem(
+                                            name = it.product.name,
+                                            quantity = it.quantity,
+                                            unitPrice = it.product.price
+                                        )
+                                    }
+                                    val receiptId = receiptRepository.createReceipt(
+                                        buyerName = currentUser.username,
+                                        buyerEmail = currentUser.email,
+                                        paymentMethod = paymentMethod,
+                                        items = items,
+                                        subtotal = subtotal,
+                                        shipping = shipping,
+                                        commission = commission,
+                                        total = total,
+                                        receiptId = order.id
                                     )
-                                }
-                                val receiptId = receiptRepository.createReceipt(
-                                    buyerName = currentUser.username,
-                                    buyerEmail = currentUser.email,
-                                    paymentMethod = paymentMethod,
-                                    items = items,
-                                    subtotal = subtotal,
-                                    shipping = shipping,
-                                    commission = commission,
-                                    total = total,
-                                    receiptId = order.id
-                                )
 
-                                // 2) Navegar a la boleta pasando el id
-                                navController.navigate("receipt/$receiptId") {
-                                    // sacamos la pantalla de carrito de la pila
-                                    popUpTo("cart") { inclusive = true }
+                                    // 2) Navegar a la boleta pasando el id
+                                    navController.navigate("receipt/$receiptId") {
+                                        // sacamos la pantalla de carrito de la pila
+                                        popUpTo("cart") { inclusive = true }
+                                    }
                                 }
                             } else {
                                 Toast.makeText(

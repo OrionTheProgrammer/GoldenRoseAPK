@@ -25,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +47,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.golden_rose_apk.R
 import com.example.golden_rose_apk.ViewModel.AuthViewModel
 import com.example.golden_rose_apk.repository.LocalUserRepository
+import kotlinx.coroutines.launch
 import java.util.regex.Pattern
 
 @OptIn(ExperimentalMaterial3Api::class)
