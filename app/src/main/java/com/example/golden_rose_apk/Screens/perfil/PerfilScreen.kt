@@ -39,14 +39,13 @@ import com.example.golden_rose_apk.ViewModel.AuthViewModel
 import com.example.golden_rose_apk.ViewModel.AuthViewModelFactory
 import com.example.golden_rose_apk.ViewModel.SettingsViewModel
 import com.example.golden_rose_apk.model.BottomNavItem
-import java.io.File
-import java.io.FileOutputStream
-import com.google.firebase.messaging.FirebaseMessaging
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import com.example.golden_rose_apk.repository.LocalUser
+import com.example.golden_rose_apk.repository.LocalUserRepository
+import java.io.File
+import java.io.FileOutputStream
 
 
 
@@ -61,6 +60,8 @@ fun PerfilScreen(
     val context = LocalContext.current
     val application = context.applicationContext as Application
     val authViewModel: AuthViewModel = viewModel(factory = AuthViewModelFactory(application))
+    val userRepository = remember { LocalUserRepository(context) }
+    val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
 
     // Estado que viene del SettingsViewModel COMPARTIDO
     val username by settingsViewModel.username.collectAsState()
@@ -68,31 +69,14 @@ fun PerfilScreen(
     val currentTheme by settingsViewModel.appTheme.collectAsState()
     val pushNotificationsEnabled by settingsViewModel.pushNotificationsEnabled.collectAsState()
 
-    // ---- Firebase user ----
-    val firebaseUser = FirebaseAuth.getInstance().currentUser
-    val email = firebaseUser?.email.orEmpty()
-
-    // 🔹 username que viene de Firestore (campo "username")
-    var firestoreUsername by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(firebaseUser?.uid) {
-        val uid = firebaseUser?.uid ?: return@LaunchedEffect
-
-        FirebaseFirestore.getInstance()
-            .collection("users")
-            .document(uid)
-            .get()
-            .addOnSuccessListener { doc ->
-                firestoreUsername = doc.getString("username")
-            }
-            .addOnFailureListener { e ->
-                e.printStackTrace()
-            }
+    var currentUser by remember { mutableStateOf<LocalUser?>(null) }
+    LaunchedEffect(isLoggedIn) {
+        currentUser = if (isLoggedIn) userRepository.getCurrentUser() else null
     }
+    val email = currentUser?.email.orEmpty()
 
     // Nombre para mostrar: primero displayName, luego username guardado, luego parte del email
-    val displayName = firestoreUsername
-        ?: firebaseUser?.displayName
+    val displayName = currentUser?.username
         ?: username.takeIf { it.isNotBlank() }
         ?: email.substringBefore("@")
         ?: "Invitado"
@@ -138,20 +122,13 @@ fun PerfilScreen(
     ) { isGranted ->
         if (isGranted) {
             settingsViewModel.setPushNotificationsEnabled(true)
-            FirebaseMessaging.getInstance().subscribeToTopic("all")
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        Log.d("FCM", "Suscripción a notificaciones activada tras permiso")
-                        Toast.makeText(
-                            context,
-                            "Notificaciones activadas",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
+            Toast.makeText(
+                context,
+                "Notificaciones activadas (modo local)",
+                Toast.LENGTH_SHORT
+            ).show()
         } else {
             settingsViewModel.setPushNotificationsEnabled(false)
-            Log.d("FCM", "Usuario negó el permiso de notificaciones")
             Toast.makeText(
                 context,
                 "Permiso de notificaciones denegado",
@@ -281,15 +258,52 @@ fun PerfilScreen(
                 Text("Editar Perfil")
             }
 
+            SettingItemDivider(title = "Cuenta")
+
+            if (isLoggedIn) {
+                Text(
+                    text = "Sesión iniciada como $displayName",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            } else {
+                Text(
+                    text = "Inicia sesión para ver tus compras y preferencias personalizadas.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TextButton(onClick = { navController.navigate("login") }) {
+                        Text("Iniciar sesión")
+                    }
+                    TextButton(onClick = { navController.navigate("register") }) {
+                        Text("Crear cuenta")
+                    }
+                }
+            }
+
             SettingItemDivider(title = "Tus compras")
 
-            TextButton(
-                onClick = { navController.navigate("orderHistory") },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            ) {
-                Icon(Icons.Default.ShoppingBag, contentDescription = null)
-                Spacer(Modifier.width(8.dp))
-                Text("Mis compras")
+            if (isLoggedIn) {
+                TextButton(
+                    onClick = { navController.navigate("orderHistory") },
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                ) {
+                    Icon(Icons.Default.ShoppingBag, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Mis compras")
+                }
+            } else {
+                Text(
+                    text = "Inicia sesión para ver tu historial de compras.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
 
 
@@ -319,17 +333,11 @@ fun PerfilScreen(
                             if (hasPermission) {
                                 // Ya tiene permiso → activar y suscribirse
                                 settingsViewModel.setPushNotificationsEnabled(true)
-                                FirebaseMessaging.getInstance().subscribeToTopic("all")
-                                    .addOnCompleteListener { task ->
-                                        if (task.isSuccessful) {
-                                            Log.d("FCM", "Suscripción a notificaciones activada")
-                                            Toast.makeText(
-                                                context,
-                                                "Notificaciones activadas",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
+                                Toast.makeText(
+                                    context,
+                                    "Notificaciones activadas (modo local)",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             } else {
                                 // Pedir permiso
                                 notificationPermissionLauncher.launch(
@@ -339,32 +347,20 @@ fun PerfilScreen(
                         } else {
                             // Android < 13 → no necesita permiso
                             settingsViewModel.setPushNotificationsEnabled(true)
-                            FirebaseMessaging.getInstance().subscribeToTopic("all")
-                                .addOnCompleteListener { task ->
-                                    if (task.isSuccessful) {
-                                        Log.d("FCM", "Suscripción a notificaciones activada (<13)")
-                                        Toast.makeText(
-                                            context,
-                                            "Notificaciones activadas",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
+                            Toast.makeText(
+                                context,
+                                "Notificaciones activadas (modo local)",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     } else {
                         // Usuario desactiva el switch
                         settingsViewModel.setPushNotificationsEnabled(false)
-                        FirebaseMessaging.getInstance().unsubscribeFromTopic("all")
-                            .addOnCompleteListener { task ->
-                                if (task.isSuccessful) {
-                                    Log.d("FCM", "Suscripción a notificaciones desactivada")
-                                    Toast.makeText(
-                                        context,
-                                        "Notificaciones desactivadas",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
+                        Toast.makeText(
+                            context,
+                            "Notificaciones desactivadas (modo local)",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             )
@@ -391,29 +387,30 @@ fun PerfilScreen(
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Botón Cerrar Sesión
-            Button(
-                onClick = {
-                    Log.d("SettingsScreen", "Logout button clicked!")
-                    authViewModel.logout()
+            if (isLoggedIn) {
+                Button(
+                    onClick = {
+                        Log.d("SettingsScreen", "Logout button clicked!")
+                        authViewModel.logout()
 
-                    navController.navigate("login") {
-                        popUpTo(navController.graph.startDestinationId) {
-                            inclusive = true
+                        navController.navigate("login") {
+                            popUpTo(navController.graph.startDestinationId) {
+                                inclusive = true
+                            }
+                            launchSingleTop = true
                         }
-                        launchSingleTop = true
-                    }
-                },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp)
-            ) {
-                Icon(Icons.Filled.ExitToApp, contentDescription = null)
-                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Cerrar Sesión")
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp)
+                ) {
+                    Icon(Icons.Filled.ExitToApp, contentDescription = null)
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Cerrar Sesión")
+                }
             }
         }
     }

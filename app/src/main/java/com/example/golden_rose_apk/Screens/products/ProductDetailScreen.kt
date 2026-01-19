@@ -56,7 +56,7 @@ import com.example.golden_rose_apk.model.BottomNavItem
 import com.example.golden_rose_apk.ui.components.GoldenSurfaceCard
 import com.example.golden_rose_apk.ui.components.PillBadge
 import com.example.golden_rose_apk.ui.components.PrimaryButton
-import com.example.golden_rose_apk.utils.getTierInfoFromUrl
+import com.example.golden_rose_apk.utils.getTierInfoFromLabel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -187,7 +187,7 @@ fun ProductDetailScreen(
 
                         // Badge de tier
                         val categoryString = skin.category
-                        val tierInfo = getTierInfoFromUrl(categoryString)
+                        val tierInfo = getTierInfoFromLabel(categoryString)
 
                         PillBadge(
                             text = tierInfo.name,
