@@ -39,14 +39,12 @@ import com.example.golden_rose_apk.ViewModel.AuthViewModel
 import com.example.golden_rose_apk.ViewModel.AuthViewModelFactory
 import com.example.golden_rose_apk.ViewModel.SettingsViewModel
 import com.example.golden_rose_apk.model.BottomNavItem
-import java.io.File
-import java.io.FileOutputStream
-import com.google.firebase.messaging.FirebaseMessaging
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.core.content.ContextCompat
+import com.example.golden_rose_apk.repository.LocalUserRepository
+import java.io.File
+import java.io.FileOutputStream
 
 
 
@@ -61,6 +59,7 @@ fun PerfilScreen(
     val context = LocalContext.current
     val application = context.applicationContext as Application
     val authViewModel: AuthViewModel = viewModel(factory = AuthViewModelFactory(application))
+    val userRepository = remember { LocalUserRepository(context) }
 
     // Estado que viene del SettingsViewModel COMPARTIDO
     val username by settingsViewModel.username.collectAsState()
@@ -68,31 +67,11 @@ fun PerfilScreen(
     val currentTheme by settingsViewModel.appTheme.collectAsState()
     val pushNotificationsEnabled by settingsViewModel.pushNotificationsEnabled.collectAsState()
 
-    // ---- Firebase user ----
-    val firebaseUser = FirebaseAuth.getInstance().currentUser
-    val email = firebaseUser?.email.orEmpty()
-
-    // 🔹 username que viene de Firestore (campo "username")
-    var firestoreUsername by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(firebaseUser?.uid) {
-        val uid = firebaseUser?.uid ?: return@LaunchedEffect
-
-        FirebaseFirestore.getInstance()
-            .collection("users")
-            .document(uid)
-            .get()
-            .addOnSuccessListener { doc ->
-                firestoreUsername = doc.getString("username")
-            }
-            .addOnFailureListener { e ->
-                e.printStackTrace()
-            }
-    }
+    val currentUser = userRepository.getCurrentUser()
+    val email = currentUser?.email.orEmpty()
 
     // Nombre para mostrar: primero displayName, luego username guardado, luego parte del email
-    val displayName = firestoreUsername
-        ?: firebaseUser?.displayName
+    val displayName = currentUser?.username
         ?: username.takeIf { it.isNotBlank() }
         ?: email.substringBefore("@")
         ?: "Invitado"
@@ -138,20 +117,13 @@ fun PerfilScreen(
     ) { isGranted ->
         if (isGranted) {
             settingsViewModel.setPushNotificationsEnabled(true)
-            FirebaseMessaging.getInstance().subscribeToTopic("all")
-                .addOnCompleteListener { task ->
-                    if (task.isSuccessful) {
-                        Log.d("FCM", "Suscripción a notificaciones activada tras permiso")
-                        Toast.makeText(
-                            context,
-                            "Notificaciones activadas",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
+            Toast.makeText(
+                context,
+                "Notificaciones activadas (modo local)",
+                Toast.LENGTH_SHORT
+            ).show()
         } else {
             settingsViewModel.setPushNotificationsEnabled(false)
-            Log.d("FCM", "Usuario negó el permiso de notificaciones")
             Toast.makeText(
                 context,
                 "Permiso de notificaciones denegado",
@@ -319,17 +291,11 @@ fun PerfilScreen(
                             if (hasPermission) {
                                 // Ya tiene permiso → activar y suscribirse
                                 settingsViewModel.setPushNotificationsEnabled(true)
-                                FirebaseMessaging.getInstance().subscribeToTopic("all")
-                                    .addOnCompleteListener { task ->
-                                        if (task.isSuccessful) {
-                                            Log.d("FCM", "Suscripción a notificaciones activada")
-                                            Toast.makeText(
-                                                context,
-                                                "Notificaciones activadas",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    }
+                                Toast.makeText(
+                                    context,
+                                    "Notificaciones activadas (modo local)",
+                                    Toast.LENGTH_SHORT
+                                ).show()
                             } else {
                                 // Pedir permiso
                                 notificationPermissionLauncher.launch(
@@ -339,32 +305,20 @@ fun PerfilScreen(
                         } else {
                             // Android < 13 → no necesita permiso
                             settingsViewModel.setPushNotificationsEnabled(true)
-                            FirebaseMessaging.getInstance().subscribeToTopic("all")
-                                .addOnCompleteListener { task ->
-                                    if (task.isSuccessful) {
-                                        Log.d("FCM", "Suscripción a notificaciones activada (<13)")
-                                        Toast.makeText(
-                                            context,
-                                            "Notificaciones activadas",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
-                                    }
-                                }
+                            Toast.makeText(
+                                context,
+                                "Notificaciones activadas (modo local)",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     } else {
                         // Usuario desactiva el switch
                         settingsViewModel.setPushNotificationsEnabled(false)
-                        FirebaseMessaging.getInstance().unsubscribeFromTopic("all")
-                            .addOnCompleteListener { task ->
-                                if (task.isSuccessful) {
-                                    Log.d("FCM", "Suscripción a notificaciones desactivada")
-                                    Toast.makeText(
-                                        context,
-                                        "Notificaciones desactivadas",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
+                        Toast.makeText(
+                            context,
+                            "Notificaciones desactivadas (modo local)",
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 }
             )

@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,10 +40,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import com.example.golden_rose_apk.R
-import com.google.firebase.auth.FirebaseAuth
+import com.example.golden_rose_apk.ViewModel.AuthViewModel
+import com.example.golden_rose_apk.repository.LocalUserRepository
 import java.util.regex.Pattern
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,7 +65,8 @@ fun LoginScreen(navController: NavController) {
     var termsError by remember { mutableStateOf("") }
 
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val authViewModel: AuthViewModel = viewModel()
+    val userRepository = remember { LocalUserRepository(context) }
 
     // Función para validar email
     fun isValidEmail(email: String): Boolean {
@@ -280,28 +282,22 @@ fun LoginScreen(navController: NavController) {
                     if (validateForm() && !loading) {
                         loading = true
 
-                        val auth = FirebaseAuth.getInstance()
-
-                        auth.signInWithEmailAndPassword(email, password)
-                            .addOnCompleteListener { task ->
-                                loading = false
-
-                                if (task.isSuccessful) {
-                                    Toast.makeText(context, "¡Bienvenido!", Toast.LENGTH_SHORT).show()
-
-                                    navController.navigate("home") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
-
-                                } else {
-                                    Toast.makeText(
-                                        context,
-                                        task.exception?.localizedMessage
-                                            ?: "Error al iniciar sesión",
-                                        Toast.LENGTH_LONG
-                                    ).show()
+                        userRepository.login(email, password)
+                            .onSuccess { user ->
+                                authViewModel.login(user)
+                                Toast.makeText(context, "¡Bienvenido!", Toast.LENGTH_SHORT).show()
+                                navController.navigate("home") {
+                                    popUpTo("login") { inclusive = true }
                                 }
                             }
+                            .onFailure { error ->
+                                Toast.makeText(
+                                    context,
+                                    error.localizedMessage ?: "Error al iniciar sesión",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        loading = false
                     }
                 },
                 modifier = Modifier

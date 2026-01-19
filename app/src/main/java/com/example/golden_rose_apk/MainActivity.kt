@@ -42,25 +42,12 @@ import com.example.golden_rose_apk.ViewModel.OrdersViewModel
 import com.example.golden_rose_apk.ViewModel.ProductsViewModel
 import com.example.golden_rose_apk.ViewModel.SettingsViewModel
 import com.example.golden_rose_apk.ViewModel.SettingsViewModelFactory
-import com.google.firebase.messaging.FirebaseMessaging
-import com.google.firebase.FirebaseApp
-import com.google.firebase.auth.FirebaseAuth
 import com.example.golden_rose_apk.ViewModel.UserViewModel
 
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        FirebaseApp.initializeApp(this)
-
-        // OBTENER TOKEN (solo para debug)
-        FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
-            if (task.isSuccessful) {
-                val token = task.result
-                println("🔥 TOKEN FCM: $token")
-            }
-        }
 
         // Habilitar edge-to-edge (opcional pero recomendado para diseño moderno)
         enableEdgeToEdge()
@@ -78,17 +65,14 @@ class MainActivity : ComponentActivity() {
             val settingsViewModel: SettingsViewModel = viewModel(factory = SettingsViewModelFactory(application))
             val currentTheme by settingsViewModel.appTheme.collectAsState()
             val isDark = currentTheme == "dark"
-
-            //  DECIDIMOS SI YA ESTÁ LOGEADO
-            val firebaseAuth = FirebaseAuth.getInstance()
-            val alreadyLogged = firebaseAuth.currentUser != null
+            val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
 
 
             val userViewModel: UserViewModel = viewModel()
             val isDarkTheme = currentTheme == "dark"
 
             // Si ya hay usuario, entra directo a "home"
-            val startDestination = if (alreadyLogged) "home" else "welcome"
+            val startDestination = if (isLoggedIn) "home" else "welcome"
             MaterialTheme(
                 colorScheme = if (isDark) darkColorScheme() else lightColorScheme()
             ) {

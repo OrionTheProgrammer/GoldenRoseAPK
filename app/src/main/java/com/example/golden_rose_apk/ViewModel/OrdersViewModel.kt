@@ -1,21 +1,19 @@
 package com.example.golden_rose_apk.ViewModel
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import com.example.golden_rose_apk.model.Order
 import com.example.golden_rose_apk.model.OrderItem
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.Query
+import com.example.golden_rose_apk.repository.LocalOrderRepository
+import com.example.golden_rose_apk.repository.LocalUserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import kotlin.collections.emptyList
 
-class OrdersViewModel : ViewModel() {
+class OrdersViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val db = FirebaseFirestore.getInstance()
-    private val auth = FirebaseAuth.getInstance()
+    private val orderRepository = LocalOrderRepository(application)
+    private val userRepository = LocalUserRepository(application)
 
     // ====== STATE: LISTA DE MIS ÓRDENES ======
     private val _orders = MutableStateFlow<List<Order>>(emptyList())
@@ -26,14 +24,18 @@ class OrdersViewModel : ViewModel() {
         cartItems: List<CartItem>,
         onResult: (Order?) -> Unit
     ) {
-        val userId = auth.currentUser?.uid ?: ""
+        val userId = userRepository.getCurrentUserId().orEmpty()
+        if (userId.isBlank()) {
+            onResult(null)
+            return
+        }
 
         // 1) Pasar carrito -> lista de OrderItem
         val items = cartItems.map { cartItem ->
             OrderItem(
-                productName = cartItem.product.name ?: "Sin nombre",
+                productName = cartItem.product.name.ifBlank { "Sin nombre" },
                 quantity = cartItem.quantity,
-                price = cartItem.product.price ?: 0.0
+                price = cartItem.product.price
             )
         }
 
@@ -46,37 +48,16 @@ class OrdersViewModel : ViewModel() {
             total = total
         )
 
-        // 3) Guardar en Firestore
-        viewModelScope.launch {
-            db.collection("orders")
-                .add(order)
-                .addOnSuccessListener { doc ->
-                    val finalOrder = order.copy(id = doc.id)
-                    // opcional: guardar el id dentro del documento
-                    doc.update("id", doc.id)
-                    onResult(finalOrder)
-                }
-                .addOnFailureListener {
-                    it.printStackTrace()
-                    onResult(null)
-                }
+        val savedOrder = orderRepository.saveOrder(order)
+        if (userId.isNotBlank()) {
+            _orders.value = orderRepository.getOrdersForUser(userId)
         }
+        onResult(savedOrder)
     }
 
     // ====== ESCUCHAR MIS ÓRDENES (HISTORIAL) ======
     fun listenMyOrders() {
-        val userId = auth.currentUser?.uid ?: return
-
-        db.collection("orders")
-            .whereEqualTo("userId", userId)
-            .orderBy("createdAt", Query.Direction.DESCENDING)
-            .addSnapshotListener { snapshot, e ->
-                if (e != null) {
-                    e.printStackTrace()
-                    return@addSnapshotListener
-                }
-                val list = snapshot?.toObjects(Order::class.java) ?: emptyList()
-                _orders.value = list
-            }
+        val userId = userRepository.getCurrentUserId() ?: return
+        _orders.value = orderRepository.getOrdersForUser(userId)
     }
 }

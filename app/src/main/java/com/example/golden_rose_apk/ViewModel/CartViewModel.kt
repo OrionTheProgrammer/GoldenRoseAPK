@@ -7,17 +7,15 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.golden_rose_apk.model.CartItemPayload
-import com.example.golden_rose_apk.model.CreateOrderRequest
-import com.example.golden_rose_apk.model.PaymentRequest
 import com.example.golden_rose_apk.model.ProductFirestore
-import com.example.golden_rose_apk.repository.OrderRepository
-import com.example.golden_rose_apk.repository.PaymentRepository
+import com.example.golden_rose_apk.model.Order
+import com.example.golden_rose_apk.model.OrderItem
+import com.example.golden_rose_apk.repository.LocalOrderRepository
+import com.example.golden_rose_apk.repository.LocalUserRepository
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.io.IOException
 import android.content.Context
 import com.google.gson.Gson
 
@@ -28,8 +26,8 @@ data class CartItem(
 )
 
 class CartViewModel(application: Application) : AndroidViewModel(application) {
-    private val orderRepository = OrderRepository()
-    private val paymentRepository = PaymentRepository()
+    private val orderRepository = LocalOrderRepository(application)
+    private val userRepository = LocalUserRepository(application)
 
     private val prefs = application.getSharedPreferences("cart_prefs", Context.MODE_PRIVATE)
     private val gson = Gson()
@@ -44,7 +42,7 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         loadCart()   // 👈 al crear el viewmodel, carga lo guardado
     }
 
-    // Agregar producto desde la Firebase
+    // Agregar producto desde el catálogo local
     fun addToCart(product: ProductFirestore) {
         viewModelScope.launch {
             val current = _cartItems.value.toMutableList()
@@ -116,7 +114,10 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             if (_cartItems.value.isEmpty()) return@launch
 
-            if (userId.isNullOrBlank() || token.isNullOrBlank()) {
+            val resolvedUserId = userId?.takeIf { it.isNotBlank() }
+                ?: userRepository.getCurrentUserId()
+
+            if (resolvedUserId.isNullOrBlank()) {
                 _checkoutState.value = CheckoutState.Error("Debes iniciar sesión.")
                 return@launch
             }
@@ -125,36 +126,26 @@ class CartViewModel(application: Application) : AndroidViewModel(application) {
 
             try {
                 val items = _cartItems.value.map {
-                    CartItemPayload(
-                        productoId = it.product.id,
-                        cantidad = it.quantity,
-                        precioUnitario = it.product.price
+                    OrderItem(
+                        productName = it.product.name,
+                        quantity = it.quantity,
+                        price = it.product.price
                     )
                 }
 
-                val order = CreateOrderRequest(
-                    usuarioId = userId,
+                val order = Order(
+                    userId = resolvedUserId,
                     items = items,
                     total = total
                 )
 
-                val orderResponse = orderRepository.createOrder(order, token)
-
-                val payment = paymentRepository.createPayment(
-                    PaymentRequest(
-                        ordenId = orderResponse.id.toString(),
-                        monto = total
-                    ),
-                    token
-                )
+                val orderResponse = orderRepository.saveOrder(order)
 
                 _checkoutState.value = CheckoutState.Success(
-                    orderId = orderResponse.id?.toString(),
-                    paymentId = payment.id,
-                    paymentLink = payment.enlacePago
+                    orderId = orderResponse.id,
+                    paymentId = "LOCAL-${orderResponse.id}",
+                    paymentLink = null
                 )
-            } catch (e: IOException) {
-                _checkoutState.value = CheckoutState.Error("Error de red.")
             } catch (e: Exception) {
                 Log.e("CartViewModel", "Checkout error", e)
                 _checkoutState.value =

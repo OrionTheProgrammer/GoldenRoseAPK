@@ -1,14 +1,15 @@
 package com.example.golden_rose_apk.ViewModel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import com.example.golden_rose_apk.model.ProductFirestore
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.golden_rose_apk.repository.LocalProductRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-class ProductsViewModel : ViewModel() {
+class ProductsViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val db = FirebaseFirestore.getInstance()
+    private val repository = LocalProductRepository(application)
 
     private val _products = MutableStateFlow<List<ProductFirestore>>(emptyList())
     val products: StateFlow<List<ProductFirestore>> = _products
@@ -22,18 +23,7 @@ class ProductsViewModel : ViewModel() {
     }
 
     fun loadProducts() {
-        db.collection("products")
-            .get()
-            .addOnSuccessListener { result ->
-                val list = result.documents.mapNotNull { doc ->
-                    doc.toObject(ProductFirestore::class.java)?.copy(
-                        id = doc.id
-                    )
-                }
-                _products.value = list
-            }
-            .addOnFailureListener {
-                _products.value = emptyList()
-            }
+        _products.value = runCatching { repository.loadProducts() }
+            .getOrElse { emptyList() }
     }
 }

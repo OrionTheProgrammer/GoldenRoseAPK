@@ -27,10 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import java.util.Calendar
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.Timestamp
-import android.util.Log
+import com.example.golden_rose_apk.repository.LocalUserRepository
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,7 +80,10 @@ fun RegisterScreen(navController: NavController) {
     // Convalidacion de Registro
     var showSuccessDialog by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
-    var firebaseError by remember { mutableStateOf<String?>(null) }
+    var registrationError by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+    val userRepository = remember { LocalUserRepository(context) }
 
 
     // Función para validar email
@@ -584,9 +584,9 @@ fun RegisterScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            if (firebaseError != null) {
+            if (registrationError != null) {
                 Text(
-                    text = firebaseError!!,
+                    text = registrationError!!,
                     color = Color.Red,
                     modifier = Modifier.padding(bottom = 12.dp)
                 )
@@ -598,36 +598,19 @@ fun RegisterScreen(navController: NavController) {
                 enabled = !isLoading && validateForm(),
                 onClick = {
                     isLoading = true
-                    firebaseError = null
+                    registrationError = null
 
-                    val auth = FirebaseAuth.getInstance()
-                    val firestore = FirebaseFirestore.getInstance()
-
-                    auth.createUserWithEmailAndPassword(email, password)
-                        .addOnCompleteListener { task ->
-                            if (task.isSuccessful) {
-                                val uid = auth.currentUser!!.uid
-                                firestore.collection("users").document(uid)
-                                    .set(
-                                        mapOf(
-                                            "username" to user,
-                                            "email" to email,
-                                            "createdAt" to Timestamp.now()
-                                        )
-                                    )
-                                    .addOnSuccessListener {
-                                        isLoading = false
-                                        showSuccessDialog = true // ✅ AQUÍ
-                                    }
-                                    .addOnFailureListener {
-                                        isLoading = false
-                                        firebaseError = "Error guardando datos"
-                                    }
-                            } else {
-                                isLoading = false
-                                firebaseError = task.exception?.localizedMessage
-                            }
-                        }
+                    userRepository.registerUser(
+                        username = user,
+                        email = email,
+                        password = password
+                    ).onSuccess {
+                        isLoading = false
+                        showSuccessDialog = true
+                    }.onFailure { error ->
+                        isLoading = false
+                        registrationError = error.localizedMessage
+                    }
                 }
             ) {
                 if (isLoading) {

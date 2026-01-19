@@ -2,7 +2,7 @@ package com.example.golden_rose_apk
 
 import com.example.golden_rose_apk.config.Constants
 import com.example.golden_rose_apk.utils.formatPrice
-import com.example.golden_rose_apk.utils.getTierInfoFromUrl
+import com.example.golden_rose_apk.utils.getTierInfoFromLabel
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -21,15 +21,15 @@ class UtilsExtensionsTest {
     }
 
     @Test
-    fun `getTierInfoFromUrl returns expected tier name and color`() {
-        val deluxe = getTierInfoFromUrl("https://c-valorant-api.op.gg/Assets/ContentTiers/0cebb8be-46d7-c12a-d306-e9907bfc5a25.svg")
+    fun `getTierInfoFromLabel returns expected tier name and color`() {
+        val deluxe = getTierInfoFromLabel("Deluxe")
         assertEquals("Deluxe", deluxe.name)
         assertEquals(androidx.compose.ui.graphics.Color(0xFF2196F3), deluxe.color)
     }
 
     @Test
-    fun `getTierInfoFromUrl defaults to desconocido`() {
-        val unknown = getTierInfoFromUrl("https://example.com/tier")
+    fun `getTierInfoFromLabel defaults to desconocido`() {
+        val unknown = getTierInfoFromLabel("misterio")
         assertEquals("Desconocido", unknown.name)
         assertEquals(androidx.compose.ui.graphics.Color.Gray, unknown.color)
     }
