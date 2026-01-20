@@ -1,6 +1,7 @@
 package com.example.golden_rose_apk.ViewModel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.golden_rose_apk.model.ProductFirestore
@@ -16,6 +17,8 @@ class ProductsViewModel(application: Application) : AndroidViewModel(application
     private val _products = MutableStateFlow<List<ProductFirestore>>(emptyList())
     val products: StateFlow<List<ProductFirestore>> = _products
 
+    private val TAG = "ProductsViewModel"
+
     init {
         loadProducts()
     }
@@ -26,8 +29,12 @@ class ProductsViewModel(application: Application) : AndroidViewModel(application
 
     fun loadProducts() {
         viewModelScope.launch {
-            _products.value = runCatching { repository.loadProducts() }
-                .getOrElse { emptyList() }
+            val result = runCatching { repository.loadProducts() }
+            result.onFailure { throwable ->
+                Log.e(TAG, "Error cargando productos desde assets/products.json", throwable)
+            }
+            _products.value = result.getOrElse { emptyList() }
+            Log.d(TAG, "Productos cargados: ${_products.value.size}")
         }
     }
 }

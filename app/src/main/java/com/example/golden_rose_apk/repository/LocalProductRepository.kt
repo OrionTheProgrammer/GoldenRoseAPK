@@ -1,6 +1,7 @@
 package com.example.golden_rose_apk.repository
 
 import android.content.Context
+import android.util.Log
 import com.example.golden_rose_apk.config.ValorantApi
 import com.example.golden_rose_apk.model.ProductFirestore
 import com.google.gson.Gson
@@ -26,6 +27,8 @@ private data class LocalProductSeed(
 
 class LocalProductRepository(private val context: Context) {
     private val gson = Gson()
+    private val TAG = "LocalProductRepository"
+
     private val weaponsApi: ValorantWeaponsApi by lazy {
         Retrofit.Builder()
             .baseUrl("https://valorant-api.com/v1/")
@@ -36,22 +39,38 @@ class LocalProductRepository(private val context: Context) {
     }
 
     suspend fun loadProducts(): List<ProductFirestore> = withContext(Dispatchers.IO) {
-        val json = context.assets.open("products.json").bufferedReader().use { it.readText() }
-        val type = object : TypeToken<List<LocalProductSeed>>() {}.type
-        val seeds: List<LocalProductSeed> = gson.fromJson(json, type) ?: emptyList()
+        try {
+            val assetManager = context.assets
+            Log.d(TAG, "Listado assets: ${assetManager.list("")?.joinToString(", ")}")
+            val json = assetManager.open("products.json").bufferedReader().use { it.readText() }
+            val type = object : TypeToken<List<LocalProductSeed>>() {}.type
+            val seeds: List<LocalProductSeed> = try {
+                val reader = com.google.gson.stream.JsonReader(java.io.StringReader(json)).apply { isLenient = true }
+                gson.fromJson<List<LocalProductSeed>>(reader, type) ?: emptyList()
+            } catch (e: Exception) {
+                Log.w(TAG, "Gson lenient parse falló, intentando parseo estricto", e)
+                gson.fromJson(json, type) ?: emptyList()
+            }
+            Log.d(TAG, "products.json encontrado. Seeds parseadas: ${seeds.size}")
 
-        val weaponsById = fetchWeaponsById()
+            val weaponsById = fetchWeaponsById()
 
-        return@withContext seeds.map { seed ->
-            ProductFirestore(
-                id = seed.id,
-                name = seed.name,
-                price = seed.price,
-                type = seed.type,
-                category = seed.category,
-                image = resolveImage(seed, weaponsById),
-                desc = seed.desc
-            )
+            return@withContext seeds.map { seed ->
+                val resolvedImage = resolveImage(seed, weaponsById)
+                Log.d(TAG, "Seed: ${seed.id}, imageRes: ${seed.imageRes}, resolvedImage: $resolvedImage")
+                ProductFirestore(
+                    id = seed.id,
+                    name = seed.name,
+                    price = seed.price,
+                    type = seed.type,
+                    category = seed.category,
+                    image = resolvedImage,
+                    desc = seed.desc
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error leyendo assets/products.json", e)
+            return@withContext emptyList<ProductFirestore>()
         }
     }
 
@@ -85,7 +104,11 @@ class LocalProductRepository(private val context: Context) {
         return if (resourceId != 0) {
             "android.resource://${context.packageName}/drawable/$resourceName"
         } else {
-            ""
+            // Fallback: look for the image inside assets/valorant_skins/<resourceName>.png
+            // Coil and other image loaders can load URIs like file:///android_asset/...
+            val assetPath = "file:///android_asset/valorant_skins/$resourceName.png"
+            Log.d(TAG, "Drawable no encontrado para '$resourceName', fallback a: $assetPath")
+            assetPath
         }
     }
 }

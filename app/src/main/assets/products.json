@@ -54,5 +54,149 @@
     "category": "Select",
     "imageRes": "icon",
     "desc": "Acabado limpio y futurista para amantes de la precisión."
+  },
+  {
+    "id": "prime_karambit",
+    "name": "Karambit Prime",
+    "price": 1950.0,
+    "type": "Melee",
+    "category": "Premium",
+    "imageRes": "prime_karambit",
+    "desc": "Karambit Prime: diseño elegante y efectos brillantes en cada movimiento."
+  },
+  {
+    "id": "reaver_karambit",
+    "name": "Reaver Karambit",
+    "price": 2175.0,
+    "type": "Melee",
+    "category": "Deluxe",
+    "imageRes": "reaver_karambit",
+    "desc": "Reaver Karambit: hoja inspirada en las máscaras Oni, con detalles lumínicos."
+  },
+  {
+    "id": "spectrum_knife",
+    "name": "Spectrum Knife",
+    "price": 1275.0,
+    "type": "Melee",
+    "category": "Select",
+    "imageRes": "spectrum_knife",
+    "desc": "Spectrum Knife: acabados vibrantes y diseño único."
+  },
+  {
+    "id": "xenohunter_knife",
+    "name": "Xeno Hunter Knife",
+    "price": 1775.0,
+    "type": "Melee",
+    "category": "Premium",
+    "imageRes": "xenohunter_knife",
+    "desc": "Xeno Hunter: estética alienígena y filo afilado."
+  },
+  {
+    "id": "prime_phantom",
+    "name": "Prime Phantom",
+    "price": 1950.0,
+    "type": "Rifle",
+    "category": "Premium",
+    "imageRes": "prime_phantom",
+    "desc": "Prime Phantom: acabado premium con detalles dorados."
+  },
+  {
+    "id": "reaver_vandal",
+    "name": "Reaver Vandal",
+    "price": 2175.0,
+    "type": "Rifle",
+    "category": "Premium",
+    "imageRes": "reaver_vandal",
+    "desc": "Reaver Vandal: animaciones oscuras y sonido potente."
+  },
+  {
+    "id": "reaver_operator",
+    "name": "Reaver Operator",
+    "price": 2475.0,
+    "type": "Sniper",
+    "category": "Ultra",
+    "imageRes": "reaver_operator",
+    "desc": "Reaver Operator: presencia imponente y efecto flameante."
+  },
+  {
+    "id": "glitchpop_phantom",
+    "name": "Glitchpop Phantom",
+    "price": 1775.0,
+    "type": "Rifle",
+    "category": "Deluxe",
+    "imageRes": "glitchpop_phantom",
+    "desc": "Glitchpop Phantom: colores neón y efectos digitales."
+  },
+  {
+    "id": "black_market_classic",
+    "name": "Black Market Classic",
+    "price": 1275.0,
+    "type": "Pistola",
+    "category": "Select",
+    "imageRes": "black_market_classic",
+    "desc": "Black Market Classic: estilo retro y acabados oscuros."
+  },
+  {
+    "id": "prelude_to_chaos_sheriff",
+    "name": "Prelude to Chaos Sheriff",
+    "price": 1950.0,
+    "type": "Pistola",
+    "category": "Premium",
+    "imageRes": "prelude_to_chaos_sheriff",
+    "desc": "Prelude to Chaos Sheriff: elegante y contundente."
+  },
+  {
+    "id": "neo_frontier_odin",
+    "name": "Neo Frontier Odin",
+    "price": 1775.0,
+    "type": "Rifle",
+    "category": "Deluxe",
+    "imageRes": "neo_frontier_odin",
+    "desc": "Neo Frontier Odin: diseño futurista y tecnología avanzada."
+  },
+  {
+    "id": "blastx_odin",
+    "name": "BlastX Odin",
+    "price": 1275.0,
+    "type": "Rifle",
+    "category": "Select",
+    "imageRes": "blastx_odin",
+    "desc": "BlastX Odin: robusta y eficaz en combate."
+  },
+  {
+    "id": "aemondir_vandal",
+    "name": "Aemondir Vandal",
+    "price": 1775.0,
+    "type": "Rifle",
+    "category": "Deluxe",
+    "imageRes": "aemondir_vandal",
+    "desc": "Aemondir Vandal: estética mítica y poderosa."
+  },
+  {
+    "id": "champions2021_vandal",
+    "name": "Champions 2021 Vandal",
+    "price": 1275.0,
+    "type": "Rifle",
+    "category": "Select",
+    "imageRes": "champions2021_vandal",
+    "desc": "Champions 2021 Vandal: conmemorativa y estilizada."
+  },
+  {
+    "id": "champions2023_vandal",
+    "name": "Champions 2023 Vandal",
+    "price": 1275.0,
+    "type": "Rifle",
+    "category": "Select",
+    "imageRes": "champions2023_vandal",
+    "desc": "Champions 2023 Vandal: edición especial de torneo."
+  },
+  {
+    "id": "champions2025_vandal",
+    "name": "Champions 2025 Vandal",
+    "price": 1275.0,
+    "type": "Rifle",
+    "category": "Select",
+    "imageRes": "champions2025_vandal",
+    "desc": "Champions 2025 Vandal: edición especial de torneo."
   }
 ]

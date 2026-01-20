@@ -55,7 +55,7 @@ fun HomeScreen(
 
     // Categorías principales
     val categories = listOf(
-        Category("Meele", Color(0xFF5649A5)),
+        Category("Melee", Color(0xFF5649A5)),
         Category("Vandal", Color(0xFF4CAF50)),
         Category("Operator", Color(0xFF2196F3)),
         Category("Phantom", Color(0xFFFF9800))
