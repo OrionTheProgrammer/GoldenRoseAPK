@@ -164,6 +164,7 @@ fun LoginScreen(navController: NavController) {
                 )
                 OutlinedTextField(
                     value = email,
+                    maxLines = 1,
                     onValueChange = {
                         email = it
                         // Limpiar error mientras el usuario escribe
@@ -190,6 +191,7 @@ fun LoginScreen(navController: NavController) {
                     textAlign = TextAlign.Center )
                 OutlinedTextField(
                     value = password,
+                    maxLines = 1,
                     onValueChange = {
                         password = it
                         // Limpiar error mientras el usuario escribe
@@ -233,51 +235,6 @@ fun LoginScreen(navController: NavController) {
                         navController.navigate("recover_password")
                     }
             )
-
-            Spacer(Modifier.height(20.dp))
-
-            // Términos y condiciones con validación
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = if (termsError.isNotEmpty()) 4.dp else 0.dp)
-                ) {
-                    Checkbox(
-                        checked = accepted,
-                        onCheckedChange = {
-                            accepted = it
-                            if (termsError.isNotEmpty()) {
-                                termsError = ""
-                            }
-                        }
-                    )
-                    Text(
-                        text = "He leído y acepto los ",
-                        fontSize = 14.sp
-                    )
-                    Text(
-                        text = "términos y condiciones",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 14.sp,
-                        modifier = Modifier.clickable {
-                            // Navegar a términos y condiciones
-                            navController.navigate("terms")
-                        }
-                    )
-                }
-
-                // Error de términos
-                if (termsError.isNotEmpty()) {
-                    Text(
-                        text = termsError,
-                        color = Color.Red,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(start = 48.dp)
-                    )
-                }
-            }
 
             Spacer(Modifier.height(25.dp))
 

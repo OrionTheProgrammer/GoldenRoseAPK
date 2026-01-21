@@ -284,6 +284,7 @@ fun RegisterScreen(navController: NavController) {
                 )
                 OutlinedTextField(
                     value = user,
+                    maxLines = 1,
                     onValueChange = {
                         user = it
                         if (userError.isNotEmpty()) userError = ""
@@ -421,6 +422,7 @@ fun RegisterScreen(navController: NavController) {
                 )
                 OutlinedTextField(
                     value = email,
+                    maxLines = 1,
                     onValueChange = {
                         email = it
                         if (emailError.isNotEmpty()) emailError = ""
@@ -460,6 +462,7 @@ fun RegisterScreen(navController: NavController) {
                 )
                 OutlinedTextField(
                     value = password,
+                    maxLines = 1,
                     onValueChange = { password = it },
                     label = { Text("Crea una contraseña segura") },
                     modifier = Modifier.fillMaxWidth(),

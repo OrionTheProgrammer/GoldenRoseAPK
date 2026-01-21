@@ -223,39 +223,43 @@ fun PerfilScreen(
             }
 
             // Botón subir imagen
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                TextButton(onClick = {
-                    val permission =
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-                            Manifest.permission.READ_MEDIA_IMAGES
-                        else
-                            Manifest.permission.READ_EXTERNAL_STORAGE
+            if (isLoggedIn){
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    TextButton(onClick = {
+                        val permission =
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                                Manifest.permission.READ_MEDIA_IMAGES
+                            else
+                                Manifest.permission.READ_EXTERNAL_STORAGE
 
-                    permissionLauncher.launch(permission)
-                }) {
-                    Icon(Icons.Default.Image, contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Subir desde galería")
+                        permissionLauncher.launch(permission)
+                    }) {
+                        Icon(Icons.Default.Image, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Subir desde galería")
+                    }
                 }
             }
 
             // Botón Editar Perfil
-            TextButton(
-                onClick = { navController.navigate("editarPerfil") },
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(bottom = 16.dp)
-            ) {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = null,
-                    modifier = Modifier.size(ButtonDefaults.IconSize)
-                )
-                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Editar Perfil")
+            if (isLoggedIn){
+                TextButton(
+                    onClick = { navController.navigate("editarPerfil") },
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(bottom = 16.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = null,
+                        modifier = Modifier.size(ButtonDefaults.IconSize)
+                    )
+                    Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+                    Text("Editar Perfil")
+                }
             }
 
             SettingItemDivider(title = "Cuenta")
@@ -287,9 +291,9 @@ fun PerfilScreen(
                 }
             }
 
-            SettingItemDivider(title = "Tus compras")
-
-            if (isLoggedIn) {
+            // Historial de compras
+            if (isLoggedIn){
+                SettingItemDivider(title = "Tus compras")
                 TextButton(
                     onClick = { navController.navigate("orderHistory") },
                     modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -298,72 +302,69 @@ fun PerfilScreen(
                     Spacer(Modifier.width(8.dp))
                     Text("Mis compras")
                 }
-            } else {
-                Text(
-                    text = "Inicia sesión para ver tu historial de compras.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
+
             }
 
 
             // Preferencias
-            SettingItemDivider(title = "Preferencias")
+            if (isLoggedIn){
+                SettingItemDivider(title = "Preferencias")
 
-            SettingSwitchItem(
-                text = "Recibir ofertas por correo",
-                icon = Icons.Default.Email,
-                checked = receiveOffers,
-                onCheckedChange = { settingsViewModel.setReceiveOffers(it) }
-            )
+                SettingSwitchItem(
+                    text = "Recibir ofertas por correo",
+                    icon = Icons.Default.Email,
+                    checked = receiveOffers,
+                    onCheckedChange = { settingsViewModel.setReceiveOffers(it) }
+                )
 
-            SettingSwitchItem(
-                text = "Activar notificaciones push",
-                icon = Icons.Default.Notifications,
-                checked = pushNotificationsEnabled,
-                onCheckedChange = { enabled ->
-                    if (enabled) {
-                        // Usuario quiere activar
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                            val hasPermission = ContextCompat.checkSelfPermission(
-                                context,
-                                Manifest.permission.POST_NOTIFICATIONS
-                            ) == PackageManager.PERMISSION_GRANTED
+                SettingSwitchItem(
+                    text = "Activar notificaciones push",
+                    icon = Icons.Default.Notifications,
+                    checked = pushNotificationsEnabled,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            // Usuario quiere activar
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                val hasPermission = ContextCompat.checkSelfPermission(
+                                    context,
+                                    Manifest.permission.POST_NOTIFICATIONS
+                                ) == PackageManager.PERMISSION_GRANTED
 
-                            if (hasPermission) {
-                                // Ya tiene permiso → activar y suscribirse
+                                if (hasPermission) {
+                                    // Ya tiene permiso → activar y suscribirse
+                                    settingsViewModel.setPushNotificationsEnabled(true)
+                                    Toast.makeText(
+                                        context,
+                                        "Notificaciones activadas (modo local)",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                } else {
+                                    // Pedir permiso
+                                    notificationPermissionLauncher.launch(
+                                        Manifest.permission.POST_NOTIFICATIONS
+                                    )
+                                }
+                            } else {
+                                // Android < 13 → no necesita permiso
                                 settingsViewModel.setPushNotificationsEnabled(true)
                                 Toast.makeText(
                                     context,
                                     "Notificaciones activadas (modo local)",
                                     Toast.LENGTH_SHORT
                                 ).show()
-                            } else {
-                                // Pedir permiso
-                                notificationPermissionLauncher.launch(
-                                    Manifest.permission.POST_NOTIFICATIONS
-                                )
                             }
                         } else {
-                            // Android < 13 → no necesita permiso
-                            settingsViewModel.setPushNotificationsEnabled(true)
+                            // Usuario desactiva el switch
+                            settingsViewModel.setPushNotificationsEnabled(false)
                             Toast.makeText(
                                 context,
-                                "Notificaciones activadas (modo local)",
+                                "Notificaciones desactivadas (modo local)",
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
-                    } else {
-                        // Usuario desactiva el switch
-                        settingsViewModel.setPushNotificationsEnabled(false)
-                        Toast.makeText(
-                            context,
-                            "Notificaciones desactivadas (modo local)",
-                            Toast.LENGTH_SHORT
-                        ).show()
                     }
-                }
-            )
+                )
+            }
 
             // Apariencia
             SettingItemDivider(title = "Apariencia")

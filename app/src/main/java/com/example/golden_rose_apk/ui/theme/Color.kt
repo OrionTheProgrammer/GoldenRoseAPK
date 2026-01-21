@@ -8,4 +8,4 @@ val TextPrimary = Color(0xFFF9F9F9)        // --color-text
 val TextSecondary = Color(0xFFADB5BD)     // --color-text-secondary
 val ValorantRed = Color(0xFFFF4655)      // --color-primary
 val GoldenAccent = Color(0xFFFFD700)     // --color-secondary
-val BorderColor = Color(0xFF3A3F44)       // --color-border
+val BorderColor = Color(0xFF606060)       // --color-border

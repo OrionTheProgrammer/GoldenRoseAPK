@@ -40,8 +40,8 @@ import kotlinx.coroutines.launch
 fun EditarPefilScreen(
     navController: NavController,
     userViewModel: UserViewModel,
-    isDarkTheme: Boolean,                 // 👈 viene desde Main
-    onThemeChange: (Boolean) -> Unit      // 👈 callback al Main
+    isDarkTheme: Boolean,                 // viene desde Main
+    onThemeChange: (Boolean) -> Unit      // callback al Main
 ) {
     val uiState by userViewModel.userUiState.collectAsState()
     val colorScheme = MaterialTheme.colorScheme
