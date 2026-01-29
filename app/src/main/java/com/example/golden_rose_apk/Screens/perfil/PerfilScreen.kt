@@ -49,9 +49,11 @@ import com.example.golden_rose_apk.ViewModel.AuthViewModel
 import com.example.golden_rose_apk.ViewModel.AuthViewModelFactory
 import com.example.golden_rose_apk.ViewModel.PlayerContentViewModel
 import com.example.golden_rose_apk.ViewModel.PlayerContentViewModelFactory
+import com.example.golden_rose_apk.ViewModel.ProductsViewModel
 import com.example.golden_rose_apk.ViewModel.SettingsViewModel
 import com.example.golden_rose_apk.model.BottomNavItem
 import com.example.golden_rose_apk.model.PlayerCardFormat
+import com.example.golden_rose_apk.ui.components.NotificationHelper
 import com.example.golden_rose_apk.ui.components.SoundEffects
 import android.content.pm.PackageManager
 import android.widget.Toast
@@ -76,6 +78,7 @@ fun PerfilScreen(
     val authViewModel: AuthViewModel = viewModel(factory = AuthViewModelFactory(application))
     val playerContentViewModel: PlayerContentViewModel =
         viewModel(factory = PlayerContentViewModelFactory(application))
+    val productsViewModel: ProductsViewModel = viewModel()
     val userRepository = remember { LocalUserRepository(context) }
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
 
@@ -92,6 +95,7 @@ fun PerfilScreen(
     val equippedTitleId by playerContentViewModel.equippedTitleId.collectAsState()
     val selectedCardFormat by playerContentViewModel.selectedCardFormat.collectAsState()
     val selectedCardCategory by playerContentViewModel.selectedCardCategory.collectAsState()
+    val products by productsViewModel.products.collectAsState()
 
     var currentUser by remember { mutableStateOf<LocalUser?>(null) }
     LaunchedEffect(isLoggedIn) {
@@ -108,6 +112,9 @@ fun PerfilScreen(
     val cardCategories = remember(playerCards) {
         listOf("Todas") + playerCards.map { it.categoryLabel }.distinct().sorted()
     }
+    val cardCategoryCounts = remember(playerCards) {
+        playerCards.groupingBy { it.categoryLabel }.eachCount()
+    }
     val visibleCards = remember(playerCards, selectedCardCategory) {
         if (selectedCardCategory == "Todas") {
             playerCards
@@ -116,14 +123,19 @@ fun PerfilScreen(
         }
     }
 
-    // Estado para almacenar imagen de perfil
-    var profileImageUri by remember { mutableStateOf<Uri?>(null) }
+    val profilePrefs = remember {
+        context.getSharedPreferences("profile_prefs", Context.MODE_PRIVATE)
+    }
+    var profileImageUri by remember {
+        mutableStateOf(profilePrefs.getString("profile_image_uri", null)?.toUri())
+    }
 
     // Launcher para abrir galería
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         profileImageUri = uri
+        profilePrefs.edit().putString("profile_image_uri", uri?.toString()).apply()
     }
 
     // Launcher para tomar foto
@@ -133,6 +145,7 @@ fun PerfilScreen(
         if (bitmap != null) {
             val uri = saveBitmapToCache(context, bitmap)
             profileImageUri = uri
+            profilePrefs.edit().putString("profile_image_uri", uri.toString()).apply()
         }
     }
 
@@ -173,17 +186,40 @@ fun PerfilScreen(
     }
 
     val soundEffects = remember { SoundEffects() }
+    val notificationHelper = remember { NotificationHelper(context) }
     DisposableEffect(Unit) {
         onDispose { soundEffects.release() }
     }
 
     LaunchedEffect(Unit) {
         playerContentViewModel.titleStoreUpdates.collect {
-            Toast.makeText(
-                context,
-                "La tienda de títulos se actualizó",
-                Toast.LENGTH_SHORT
-            ).show()
+            if (pushNotificationsEnabled) {
+                notificationHelper.showNotification(
+                    title = "Tienda de títulos",
+                    message = "La tienda de títulos se actualizó."
+                )
+            } else {
+                Toast.makeText(
+                    context,
+                    "La tienda de títulos se actualizó",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    LaunchedEffect(products, pushNotificationsEnabled) {
+        if (products.isNotEmpty() && pushNotificationsEnabled) {
+            val lastRecommendationAt = profilePrefs.getLong("last_skin_reco", 0L)
+            val now = System.currentTimeMillis()
+            if (now - lastRecommendationAt > SKIN_RECO_INTERVAL_MS) {
+                val recommended = products.random()
+                notificationHelper.showNotification(
+                    title = "Recomendación de skin",
+                    message = "Prueba la skin \"${recommended.name}\" hoy."
+                )
+                profilePrefs.edit().putLong("last_skin_reco", now).apply()
+            }
         }
     }
 
@@ -399,7 +435,7 @@ fun PerfilScreen(
                         soundEffects.playClick()
                         playerContentViewModel.setCardFormat(PlayerCardFormat.SMALL)
                     },
-                    label = { Text("Small") }
+                    label = { Text("Pequeña") }
                 )
                 FilterChip(
                     selected = selectedCardFormat == PlayerCardFormat.WIDE,
@@ -407,7 +443,7 @@ fun PerfilScreen(
                         soundEffects.playClick()
                         playerContentViewModel.setCardFormat(PlayerCardFormat.WIDE)
                     },
-                    label = { Text("Wide") }
+                    label = { Text("Ancha") }
                 )
                 FilterChip(
                     selected = selectedCardFormat == PlayerCardFormat.LARGE,
@@ -415,7 +451,7 @@ fun PerfilScreen(
                         soundEffects.playClick()
                         playerContentViewModel.setCardFormat(PlayerCardFormat.LARGE)
                     },
-                    label = { Text("Large") }
+                    label = { Text("Grande") }
                 )
             }
             Text(
@@ -428,13 +464,18 @@ fun PerfilScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
                 itemsIndexed(cardCategories) { _, category ->
+                    val count = if (category == "Todas") {
+                        playerCards.size
+                    } else {
+                        cardCategoryCounts[category] ?: 0
+                    }
                     FilterChip(
                         selected = selectedCardCategory == category,
                         onClick = {
                             soundEffects.playClick()
                             playerContentViewModel.setCardCategory(category)
                         },
-                        label = { Text(category) }
+                        label = { Text("$category ($count)") }
                     )
                 }
             }
@@ -755,3 +796,5 @@ fun saveBitmapToCache(context: Context, bitmap: Bitmap): Uri {
     out.close()
     return file.toUri()
 }
+
+private const val SKIN_RECO_INTERVAL_MS = 5 * 60 * 1000L

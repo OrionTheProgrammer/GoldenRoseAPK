@@ -111,7 +111,7 @@ class PlayerContentRepository(context: Context) {
     private fun resolveCardCategory(themeUuid: String?): String {
         return themeUuid?.takeIf { it.isNotBlank() }?.let { uuid ->
             "Colección ${uuid.take(4).uppercase()}"
-        } ?: "General"
+        } ?: "Sin colección"
     }
 }
 
