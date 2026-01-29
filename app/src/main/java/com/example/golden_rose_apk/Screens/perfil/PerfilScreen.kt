@@ -13,6 +13,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -33,10 +35,13 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import coil.compose.rememberAsyncImagePainter
 import com.example.golden_rose_apk.Screens.HomeBottomNavigationBar
 import com.example.golden_rose_apk.ViewModel.AuthViewModel
 import com.example.golden_rose_apk.ViewModel.AuthViewModelFactory
+import com.example.golden_rose_apk.ViewModel.PlayerContentViewModel
+import com.example.golden_rose_apk.ViewModel.PlayerContentViewModelFactory
 import com.example.golden_rose_apk.ViewModel.SettingsViewModel
 import com.example.golden_rose_apk.model.BottomNavItem
 import android.content.pm.PackageManager
@@ -60,6 +65,8 @@ fun PerfilScreen(
     val context = LocalContext.current
     val application = context.applicationContext as Application
     val authViewModel: AuthViewModel = viewModel(factory = AuthViewModelFactory(application))
+    val playerContentViewModel: PlayerContentViewModel =
+        viewModel(factory = PlayerContentViewModelFactory(application))
     val userRepository = remember { LocalUserRepository(context) }
     val isLoggedIn by authViewModel.isLoggedIn.collectAsState()
 
@@ -68,6 +75,11 @@ fun PerfilScreen(
     val receiveOffers by settingsViewModel.receiveOffers.collectAsState()
     val currentTheme by settingsViewModel.appTheme.collectAsState()
     val pushNotificationsEnabled by settingsViewModel.pushNotificationsEnabled.collectAsState()
+    val playerCards by playerContentViewModel.playerCards.collectAsState()
+    val playerTitles by playerContentViewModel.playerTitles.collectAsState()
+    val purchasedCardIds by playerContentViewModel.purchasedCardIds.collectAsState()
+    val purchasedTitleIds by playerContentViewModel.purchasedTitleIds.collectAsState()
+    val equippedTitleId by playerContentViewModel.equippedTitleId.collectAsState()
 
     var currentUser by remember { mutableStateOf<LocalUser?>(null) }
     LaunchedEffect(isLoggedIn) {
@@ -80,6 +92,7 @@ fun PerfilScreen(
         ?: username.takeIf { it.isNotBlank() }
         ?: email.substringBefore("@")
         ?: "Invitado"
+    val equippedTitleName = playerTitles.firstOrNull { it.uuid == equippedTitleId }?.displayName
 
     // Estado para almacenar imagen de perfil
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -212,6 +225,13 @@ fun PerfilScreen(
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
+                    if (!equippedTitleName.isNullOrBlank()) {
+                        Text(
+                            text = "Título: $equippedTitleName",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                     if (email.isNotBlank()) {
                         Text(
                             text = email,
@@ -303,6 +323,140 @@ fun PerfilScreen(
                     Text("Mis compras")
                 }
 
+            }
+
+            SettingItemDivider(title = "Colección Valorant")
+
+            if (!isLoggedIn) {
+                Text(
+                    text = "Inicia sesión para comprar tarjetas y títulos.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+
+            Text(
+                text = "Tarjetas de jugador",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp)
+            ) {
+                items(playerCards.take(10)) { card ->
+                    val isPurchased = purchasedCardIds.contains(card.uuid)
+                    Card(
+                        modifier = Modifier.width(200.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            AsyncImage(
+                                model = card.wideArt ?: card.smallArt,
+                                contentDescription = card.displayName,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(110.dp)
+                                    .clip(MaterialTheme.shapes.medium)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = card.displayName,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            if (isPurchased) {
+                                Button(
+                                    onClick = {
+                                        val success = playerContentViewModel.downloadPlayerCard(card)
+                                        Toast.makeText(
+                                            context,
+                                            if (success) "Descarga iniciada" else "No se pudo descargar",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Descargar")
+                                }
+                            } else {
+                                Button(
+                                    onClick = {
+                                        playerContentViewModel.purchaseCard(card)
+                                        Toast.makeText(
+                                            context,
+                                            "Tarjeta comprada",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = isLoggedIn
+                                ) {
+                                    Text("Comprar")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Text(
+                text = "Títulos de jugador",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
+            )
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                playerTitles.take(10).forEach { title ->
+                    val isPurchased = purchasedTitleIds.contains(title.uuid)
+                    val isEquipped = equippedTitleId == title.uuid
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = title.displayName,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge
+                            )
+                            if (isPurchased) {
+                                TextButton(
+                                    onClick = {
+                                        playerContentViewModel.equipTitle(
+                                            if (isEquipped) null else title.uuid
+                                        )
+                                    },
+                                    enabled = isLoggedIn
+                                ) {
+                                    Text(if (isEquipped) "Equipado" else "Equipar")
+                                }
+                            } else {
+                                TextButton(
+                                    onClick = {
+                                        playerContentViewModel.purchaseTitle(title)
+                                        Toast.makeText(
+                                            context,
+                                            "Título comprado",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    },
+                                    enabled = isLoggedIn
+                                ) {
+                                    Text("Comprar")
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
 
