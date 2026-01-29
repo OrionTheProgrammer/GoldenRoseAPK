@@ -71,12 +71,15 @@ fun LoginScreen(navController: NavController) {
     val authViewModel: AuthViewModel = viewModel()
     val userRepository = remember { LocalUserRepository(context) }
     val scope = rememberCoroutineScope()
+    val emailRegex = remember {
+        Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+    }
+
+    val trimmedEmail = email.trim()
+    val canSubmit = trimmedEmail.isNotEmpty() && password.isNotEmpty() && accepted && !loading
 
     // Función para validar email
     fun isValidEmail(email: String): Boolean {
-        val emailRegex = Pattern.compile(
-            "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}\$"
-        )
         return emailRegex.matcher(email).matches()
     }
 
@@ -86,8 +89,8 @@ fun LoginScreen(navController: NavController) {
 
         // Validar email
         emailError = when {
-            email.isBlank() -> "El correo es requerido"
-            !isValidEmail(email) -> "Ingresa un correo válido"
+            trimmedEmail.isBlank() -> "El correo es requerido"
+            !isValidEmail(trimmedEmail) -> "Ingresa un correo válido"
             else -> ""
         }
         if (emailError.isNotEmpty()) isValid = false
@@ -272,27 +275,27 @@ fun LoginScreen(navController: NavController) {
 
             Button(
                 onClick = {
-                    if (validateForm() && !loading) {
-                        loading = true
+                    if (!validateForm() || loading) return@Button
 
-                        scope.launch {
-                            userRepository.login(email, password)
-                                .onSuccess { user ->
-                                    authViewModel.login(user)
-                                    Toast.makeText(context, "¡Bienvenido!", Toast.LENGTH_SHORT).show()
-                                    navController.navigate("loading") {
-                                        popUpTo("login") { inclusive = true }
-                                    }
+                    loading = true
+                    scope.launch {
+                        userRepository.login(trimmedEmail, password)
+                            .onSuccess { user ->
+                                authViewModel.login(user)
+                                Toast.makeText(context, "¡Bienvenido!", Toast.LENGTH_SHORT).show()
+                                navController.navigate("loading") {
+                                    popUpTo("login") { inclusive = true }
                                 }
-                                .onFailure { error ->
-                                    Toast.makeText(
-                                        context,
-                                        error.localizedMessage ?: "Error al iniciar sesión",
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            loading = false
-                        }
+                            }
+                            .onFailure { error ->
+                                passwordError = "Correo o contraseña incorrectos."
+                                Toast.makeText(
+                                    context,
+                                    error.localizedMessage ?: "Error al iniciar sesión",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        loading = false
                     }
                 },
                 modifier = Modifier
@@ -303,7 +306,7 @@ fun LoginScreen(navController: NavController) {
                     disabledContainerColor = Color(0xFF9E9E9E)
                 ),
                 shape = RoundedCornerShape(50),
-                enabled = !loading
+                enabled = canSubmit
             ) {
                 if (loading) {
                     CircularProgressIndicator(
