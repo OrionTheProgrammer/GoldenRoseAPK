@@ -149,7 +149,6 @@ private class PlayerContentStorage(context: Context) {
 
     private fun equippedTitleKey(userId: String?): String = "equipped_title_${userId ?: "guest"}"
 }
-}
 
 private interface ValorantPlayerContentApi {
     @GET("playercards")
