@@ -13,6 +13,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -23,10 +25,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -37,7 +42,8 @@ import androidx.core.net.toUri
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
-import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import androidx.compose.ui.layout.ContentScale
 import com.example.golden_rose_apk.Screens.HomeBottomNavigationBar
 import com.example.golden_rose_apk.ViewModel.AuthViewModel
 import com.example.golden_rose_apk.ViewModel.AuthViewModelFactory
@@ -46,6 +52,7 @@ import com.example.golden_rose_apk.ViewModel.PlayerContentViewModelFactory
 import com.example.golden_rose_apk.ViewModel.SettingsViewModel
 import com.example.golden_rose_apk.model.BottomNavItem
 import com.example.golden_rose_apk.model.PlayerCardFormat
+import com.example.golden_rose_apk.ui.components.SoundEffects
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -165,6 +172,11 @@ fun PerfilScreen(
         }
     }
 
+    val soundEffects = remember { SoundEffects() }
+    DisposableEffect(Unit) {
+        onDispose { soundEffects.release() }
+    }
+
     LaunchedEffect(Unit) {
         playerContentViewModel.titleStoreUpdates.collect {
             Toast.makeText(
@@ -219,9 +231,14 @@ fun PerfilScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     if (profileImageUri != null) {
-                        Image(
-                            painter = rememberAsyncImagePainter(profileImageUri),
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(profileImageUri)
+                                .crossfade(true)
+                                .size(256)
+                                .build(),
                             contentDescription = "Foto de perfil",
+                            contentScale = ContentScale.Crop,
                             modifier = Modifier
                                 .size(80.dp)
                                 .clip(CircleShape)
@@ -378,17 +395,26 @@ fun PerfilScreen(
             ) {
                 FilterChip(
                     selected = selectedCardFormat == PlayerCardFormat.SMALL,
-                    onClick = { playerContentViewModel.setCardFormat(PlayerCardFormat.SMALL) },
+                    onClick = {
+                        soundEffects.playClick()
+                        playerContentViewModel.setCardFormat(PlayerCardFormat.SMALL)
+                    },
                     label = { Text("Small") }
                 )
                 FilterChip(
                     selected = selectedCardFormat == PlayerCardFormat.WIDE,
-                    onClick = { playerContentViewModel.setCardFormat(PlayerCardFormat.WIDE) },
+                    onClick = {
+                        soundEffects.playClick()
+                        playerContentViewModel.setCardFormat(PlayerCardFormat.WIDE)
+                    },
                     label = { Text("Wide") }
                 )
                 FilterChip(
                     selected = selectedCardFormat == PlayerCardFormat.LARGE,
-                    onClick = { playerContentViewModel.setCardFormat(PlayerCardFormat.LARGE) },
+                    onClick = {
+                        soundEffects.playClick()
+                        playerContentViewModel.setCardFormat(PlayerCardFormat.LARGE)
+                    },
                     label = { Text("Large") }
                 )
             }
@@ -404,7 +430,10 @@ fun PerfilScreen(
                 itemsIndexed(cardCategories) { _, category ->
                     FilterChip(
                         selected = selectedCardCategory == category,
-                        onClick = { playerContentViewModel.setCardCategory(category) },
+                        onClick = {
+                            soundEffects.playClick()
+                            playerContentViewModel.setCardCategory(category)
+                        },
                         label = { Text(category) }
                     )
                 }
@@ -415,8 +444,20 @@ fun PerfilScreen(
             ) {
                 items(visibleCards.take(10)) { card ->
                     val isPurchased = purchasedCardIds.contains(card.uuid)
+                    val interactionSource = remember { MutableInteractionSource() }
+                    val pressed by interactionSource.collectIsPressedAsState()
+                    val scale by animateFloatAsState(
+                        targetValue = if (pressed) 0.98f else 1f,
+                        label = "cardScale"
+                    )
                     Card(
-                        modifier = Modifier.width(200.dp),
+                        modifier = Modifier
+                            .width(200.dp)
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                            }
+                            .animateContentSize(),
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
@@ -443,6 +484,7 @@ fun PerfilScreen(
                             if (isPurchased) {
                                 Button(
                                     onClick = {
+                                        soundEffects.playClick()
                                         val success = playerContentViewModel.downloadPlayerCard(card)
                                         Toast.makeText(
                                             context,
@@ -450,13 +492,15 @@ fun PerfilScreen(
                                             Toast.LENGTH_SHORT
                                         ).show()
                                     },
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
+                                    interactionSource = interactionSource
                                 ) {
                                     Text("Descargar")
                                 }
                             } else {
                                 Button(
                                     onClick = {
+                                        soundEffects.playSuccess()
                                         playerContentViewModel.purchaseCard(card)
                                         Toast.makeText(
                                             context,
@@ -465,7 +509,8 @@ fun PerfilScreen(
                                         ).show()
                                     },
                                     modifier = Modifier.fillMaxWidth(),
-                                    enabled = isLoggedIn
+                                    enabled = isLoggedIn,
+                                    interactionSource = interactionSource
                                 ) {
                                     Text("Comprar")
                                 }
@@ -504,6 +549,7 @@ fun PerfilScreen(
                             if (isPurchased) {
                                 TextButton(
                                     onClick = {
+                                        soundEffects.playClick()
                                         playerContentViewModel.equipTitle(
                                             if (isEquipped) null else title.uuid
                                         )
@@ -515,6 +561,7 @@ fun PerfilScreen(
                             } else {
                                 TextButton(
                                     onClick = {
+                                        soundEffects.playSuccess()
                                         playerContentViewModel.purchaseTitle(title)
                                         Toast.makeText(
                                             context,
