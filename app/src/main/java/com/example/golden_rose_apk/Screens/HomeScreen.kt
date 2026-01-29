@@ -328,7 +328,7 @@ fun CategoryCard(
     Card(
         modifier = Modifier
             .size(120.dp)
-            .clickable { navController.navigate("categories") },
+            .clickable { navController.navigate("categories?weaponType=${category.name}") },
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = colorScheme.surfaceVariant

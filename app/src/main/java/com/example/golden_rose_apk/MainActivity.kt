@@ -13,6 +13,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.golden_rose_apk.Screens.blogs.BlogScreen
 import com.example.golden_rose_apk.Screens.categories.CategoriesScreen
 import com.example.golden_rose_apk.Screens.HomeScreen
@@ -116,8 +117,22 @@ class MainActivity : ComponentActivity() {
 
                     // TopBar
                     // Pantallas de la bottom navigation
-                    composable("categories") {
-                        CategoriesScreen(navController)
+                    composable(
+                        "categories?weaponType={weaponType}",
+                        arguments = listOf(
+                            navArgument("weaponType") {
+                                nullable = true
+                                defaultValue = ""
+                            }
+                        )
+                    ) { backStackEntry ->
+                        val weaponType = backStackEntry.arguments
+                            ?.getString("weaponType")
+                            ?.takeIf { it.isNotBlank() }
+                        CategoriesScreen(
+                            navController = navController,
+                            weaponTypeFilter = weaponType
+                        )
                     }
                     composable("blogs") { BlogScreen(navController) }
                     composable(

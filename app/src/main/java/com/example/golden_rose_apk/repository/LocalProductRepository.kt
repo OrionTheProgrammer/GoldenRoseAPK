@@ -43,11 +43,12 @@ class LocalProductRepository(private val context: Context) {
                 val name = skin.displayName?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
                 val image = resolveSkinImage(skin) ?: return@mapNotNull null
                 val tierLabel = resolveTierLabel(skin.contentTierUuid)
+                val weaponType = resolveWeaponTypeFromName(name)
                 ProductFirestore(
                     id = skin.uuid,
                     name = name,
                     price = resolvePriceForTier(tierLabel),
-                    type = "Skin de arma",
+                    type = weaponType,
                     category = tierLabel,
                     image = image,
                     desc = "Skin $name de tier $tierLabel."
@@ -81,6 +82,14 @@ class LocalProductRepository(private val context: Context) {
     private fun resolveTierLabel(contentTierUuid: String?): String {
         val tierId = contentTierUuid?.lowercase() ?: return "Desconocido"
         return TIER_LABELS_BY_UUID[tierId] ?: "Desconocido"
+    }
+
+    /**
+     * Extrae el tipo de arma desde el nombre de la skin (última palabra).
+     */
+    private fun resolveWeaponTypeFromName(displayName: String): String {
+        val tokens = displayName.trim().split(Regex("\\s+"))
+        return tokens.lastOrNull()?.takeIf { it.isNotBlank() } ?: "Desconocido"
     }
 
     /**

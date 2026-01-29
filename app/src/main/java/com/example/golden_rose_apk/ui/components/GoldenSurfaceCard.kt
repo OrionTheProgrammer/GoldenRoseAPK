@@ -25,7 +25,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -125,31 +124,23 @@ fun PillBadge(
     modifier: Modifier = Modifier,
     iconUrl: String? = null
 ) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        color = GoldenAccent.copy(alpha = 0.16f),
-        border = ButtonDefaults.outlinedButtonBorder
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier.padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-        ) {
-            if (iconUrl != null) {
-                AsyncImage(
-                    model = iconUrl,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    contentScale = ContentScale.Fit
-                )
-                Spacer(modifier = Modifier.size(6.dp))
-            }
-            Text(
-                text = text,
-                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                color = GoldenAccent
+        if (iconUrl != null) {
+            AsyncImage(
+                model = iconUrl,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                contentScale = ContentScale.Fit
             )
+            Spacer(modifier = Modifier.size(6.dp))
         }
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+        )
     }
 }
 

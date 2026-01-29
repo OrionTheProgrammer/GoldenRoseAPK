@@ -55,14 +55,20 @@ import com.example.golden_rose_apk.model.ProductFirestore
 @Composable
 fun CategoriesScreen(
     navController: NavController,
+    weaponTypeFilter: String? = null,
     productsViewModel: ProductsViewModel = viewModel()
 ) {
     val products by productsViewModel.products.collectAsState()
     var searchQuery by remember { mutableStateOf("") }
     val snackbarHostState = remember { SnackbarHostState() }
+    val normalizedFilter = weaponTypeFilter?.trim()?.takeIf { it.isNotEmpty() }
 
     val filteredProducts = products.filter { product ->
-        product.name.contains(searchQuery, ignoreCase = true)
+        val matchesSearch = product.name.contains(searchQuery, ignoreCase = true)
+        val matchesType = normalizedFilter?.let { filter ->
+            product.type.equals(filter, ignoreCase = true)
+        } ?: true
+        matchesSearch && matchesType
     }
 
     val navItems = listOf(
