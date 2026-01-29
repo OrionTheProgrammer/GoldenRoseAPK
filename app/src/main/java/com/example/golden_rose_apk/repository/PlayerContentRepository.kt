@@ -7,6 +7,7 @@ import android.os.Environment
 import android.util.Log
 import com.example.golden_rose_apk.config.ValorantApi
 import com.example.golden_rose_apk.model.PlayerCard
+import com.example.golden_rose_apk.model.PlayerCardFormat
 import com.example.golden_rose_apk.model.PlayerTitle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,7 +39,9 @@ class PlayerContentRepository(context: Context) {
                         displayName = name,
                         smallArt = card.smallArt,
                         wideArt = card.wideArt,
-                        largeArt = card.largeArt
+                        largeArt = card.largeArt,
+                        themeUuid = card.themeUuid,
+                        categoryLabel = resolveCardCategory(card.themeUuid)
                     )
                 }
         }.getOrElse { error ->
@@ -80,8 +83,8 @@ class PlayerContentRepository(context: Context) {
         storage.setEquippedTitleId(titleId)
     }
 
-    fun downloadPlayerCard(card: PlayerCard): Boolean {
-        val imageUrl = card.largeArt ?: card.wideArt ?: card.smallArt ?: return false
+    fun downloadPlayerCard(card: PlayerCard, format: PlayerCardFormat): Boolean {
+        val imageUrl = resolveCardImageUrl(card, format) ?: return false
         return runCatching {
             val request = DownloadManager.Request(Uri.parse(imageUrl))
                 .setTitle(card.displayName)
@@ -95,6 +98,20 @@ class PlayerContentRepository(context: Context) {
             downloadManager.enqueue(request)
             true
         }.getOrDefault(false)
+    }
+
+    private fun resolveCardImageUrl(card: PlayerCard, format: PlayerCardFormat): String? {
+        return when (format) {
+            PlayerCardFormat.SMALL -> card.smallArt ?: card.wideArt ?: card.largeArt
+            PlayerCardFormat.WIDE -> card.wideArt ?: card.largeArt ?: card.smallArt
+            PlayerCardFormat.LARGE -> card.largeArt ?: card.wideArt ?: card.smallArt
+        }
+    }
+
+    private fun resolveCardCategory(themeUuid: String?): String {
+        return themeUuid?.takeIf { it.isNotBlank() }?.let { uuid ->
+            "Colección ${uuid.take(4).uppercase()}"
+        } ?: "General"
     }
 }
 
@@ -145,7 +162,8 @@ private data class PlayerCardResponse(
     val displayName: String?,
     val smallArt: String?,
     val wideArt: String?,
-    val largeArt: String?
+    val largeArt: String?,
+    val themeUuid: String?
 )
 
 private data class PlayerTitleResponse(

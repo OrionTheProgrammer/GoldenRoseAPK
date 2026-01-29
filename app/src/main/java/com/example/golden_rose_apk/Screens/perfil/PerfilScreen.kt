@@ -15,6 +15,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -44,6 +45,7 @@ import com.example.golden_rose_apk.ViewModel.PlayerContentViewModel
 import com.example.golden_rose_apk.ViewModel.PlayerContentViewModelFactory
 import com.example.golden_rose_apk.ViewModel.SettingsViewModel
 import com.example.golden_rose_apk.model.BottomNavItem
+import com.example.golden_rose_apk.model.PlayerCardFormat
 import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.core.content.ContextCompat
@@ -77,9 +79,12 @@ fun PerfilScreen(
     val pushNotificationsEnabled by settingsViewModel.pushNotificationsEnabled.collectAsState()
     val playerCards by playerContentViewModel.playerCards.collectAsState()
     val playerTitles by playerContentViewModel.playerTitles.collectAsState()
+    val availableTitles by playerContentViewModel.availableTitles.collectAsState()
     val purchasedCardIds by playerContentViewModel.purchasedCardIds.collectAsState()
     val purchasedTitleIds by playerContentViewModel.purchasedTitleIds.collectAsState()
     val equippedTitleId by playerContentViewModel.equippedTitleId.collectAsState()
+    val selectedCardFormat by playerContentViewModel.selectedCardFormat.collectAsState()
+    val selectedCardCategory by playerContentViewModel.selectedCardCategory.collectAsState()
 
     var currentUser by remember { mutableStateOf<LocalUser?>(null) }
     LaunchedEffect(isLoggedIn) {
@@ -93,6 +98,16 @@ fun PerfilScreen(
         ?: email.substringBefore("@")
         ?: "Invitado"
     val equippedTitleName = playerTitles.firstOrNull { it.uuid == equippedTitleId }?.displayName
+    val cardCategories = remember(playerCards) {
+        listOf("Todas") + playerCards.map { it.categoryLabel }.distinct().sorted()
+    }
+    val visibleCards = remember(playerCards, selectedCardCategory) {
+        if (selectedCardCategory == "Todas") {
+            playerCards
+        } else {
+            playerCards.filter { it.categoryLabel == selectedCardCategory }
+        }
+    }
 
     // Estado para almacenar imagen de perfil
     var profileImageUri by remember { mutableStateOf<Uri?>(null) }
@@ -145,6 +160,16 @@ fun PerfilScreen(
             Toast.makeText(
                 context,
                 "Permiso de notificaciones denegado",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        playerContentViewModel.titleStoreUpdates.collect {
+            Toast.makeText(
+                context,
+                "La tienda de títulos se actualizó",
                 Toast.LENGTH_SHORT
             ).show()
         }
@@ -340,11 +365,55 @@ fun PerfilScreen(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
             )
+            Text(
+                text = "Formato de tarjeta",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp, bottom = 6.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = selectedCardFormat == PlayerCardFormat.SMALL,
+                    onClick = { playerContentViewModel.setCardFormat(PlayerCardFormat.SMALL) },
+                    label = { Text("Small") }
+                )
+                FilterChip(
+                    selected = selectedCardFormat == PlayerCardFormat.WIDE,
+                    onClick = { playerContentViewModel.setCardFormat(PlayerCardFormat.WIDE) },
+                    label = { Text("Wide") }
+                )
+                FilterChip(
+                    selected = selectedCardFormat == PlayerCardFormat.LARGE,
+                    onClick = { playerContentViewModel.setCardFormat(PlayerCardFormat.LARGE) },
+                    label = { Text("Large") }
+                )
+            }
+            Text(
+                text = "Categorías",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 6.dp)
+            )
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp)
+            ) {
+                itemsIndexed(cardCategories) { _, category ->
+                    FilterChip(
+                        selected = selectedCardCategory == category,
+                        onClick = { playerContentViewModel.setCardCategory(category) },
+                        label = { Text(category) }
+                    )
+                }
+            }
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
-                items(playerCards.take(10)) { card ->
+                items(visibleCards.take(10)) { card ->
                     val isPurchased = purchasedCardIds.contains(card.uuid)
                     Card(
                         modifier = Modifier.width(200.dp),
@@ -352,7 +421,11 @@ fun PerfilScreen(
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             AsyncImage(
-                                model = card.wideArt ?: card.smallArt,
+                                model = when (selectedCardFormat) {
+                                    PlayerCardFormat.SMALL -> card.smallArt ?: card.wideArt ?: card.largeArt
+                                    PlayerCardFormat.WIDE -> card.wideArt ?: card.largeArt ?: card.smallArt
+                                    PlayerCardFormat.LARGE -> card.largeArt ?: card.wideArt ?: card.smallArt
+                                },
                                 contentDescription = card.displayName,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -408,7 +481,7 @@ fun PerfilScreen(
                 modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
             )
             Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                playerTitles.take(10).forEach { title ->
+                availableTitles.forEach { title ->
                     val isPurchased = purchasedTitleIds.contains(title.uuid)
                     val isEquipped = equippedTitleId == title.uuid
                     Card(

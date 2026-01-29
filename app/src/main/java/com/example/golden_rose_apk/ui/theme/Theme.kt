@@ -24,7 +24,7 @@ private val DarkColorScheme = darkColorScheme(
     onBackground = TextPrimary,
     onSurface = TextPrimary,
     onSurfaceVariant = TextSecondary,
-    outline = Color(0xFF394452)
+    outline = Color(0xFF465468)
 )
 
 /**
@@ -36,14 +36,14 @@ private val LightColorScheme = lightColorScheme(
     tertiary = GoldenAccent,
     background = Color(0xFFF5F6FA),
     surface = Color(0xFFFFFFFF),
-    surfaceVariant = Color(0xFFE7ECF3),
+    surfaceVariant = Color(0xFFEFF2F7),
     onPrimary = Color.White,
     onSecondary = Color.White,
     onTertiary = Color(0xFF2D2A32),
     onBackground = Color(0xFF0F1923),
     onSurface = Color(0xFF1C1B1F),
-    onSurfaceVariant = Color(0xFF475569),
-    outline = Color(0xFFCDD5DF)
+    onSurfaceVariant = Color(0xFF334155),
+    outline = Color(0xFFB0BCCB)
 )
 
 /**
