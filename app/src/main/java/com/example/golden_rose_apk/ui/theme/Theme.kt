@@ -8,22 +8,28 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
+/**
+ * Esquema oscuro optimizado para contraste y legibilidad.
+ */
 private val DarkColorScheme = darkColorScheme(
     primary = ValorantRed,
     secondary = GoldenAccent,
     tertiary = GoldenAccent,
     background = DarkBackground,
     surface = DarkSurface,
-    surfaceVariant = DarkSurface,
+    surfaceVariant = DarkSurfaceVariant,
     onPrimary = TextPrimary,
-    onSecondary = Color.Black,
-    onTertiary = Color.Black,
+    onSecondary = Color(0xFF1B1F24),
+    onTertiary = Color(0xFF1B1F24),
     onBackground = TextPrimary,
     onSurface = TextPrimary,
     onSurfaceVariant = TextSecondary,
-    outline = BorderColor
+    outline = Color(0xFF394452)
 )
 
+/**
+ * Esquema claro con acentos inspirados en Valorant.
+ */
 private val LightColorScheme = lightColorScheme(
     primary = ValorantRed,
     secondary = Color(0xFF6D5DD3),
@@ -40,6 +46,9 @@ private val LightColorScheme = lightColorScheme(
     outline = Color(0xFFCDD5DF)
 )
 
+/**
+ * Tema principal de la aplicación.
+ */
 @Composable
 fun GoldenRoseTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

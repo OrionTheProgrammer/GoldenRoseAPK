@@ -238,6 +238,38 @@ fun LoginScreen(navController: NavController) {
 
             Spacer(Modifier.height(25.dp))
 
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Checkbox(
+                        checked = accepted,
+                        onCheckedChange = { checked ->
+                            accepted = checked
+                            if (termsError.isNotEmpty()) {
+                                termsError = ""
+                            }
+                        }
+                    )
+                    Text(
+                        text = "Acepto los términos y condiciones",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+                if (termsError.isNotEmpty()) {
+                    Text(
+                        text = termsError,
+                        color = Color.Red,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(start = 12.dp)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+
             Button(
                 onClick = {
                     if (validateForm() && !loading) {

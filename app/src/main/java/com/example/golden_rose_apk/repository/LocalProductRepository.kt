@@ -4,125 +4,137 @@ import android.content.Context
 import android.util.Log
 import com.example.golden_rose_apk.config.ValorantApi
 import com.example.golden_rose_apk.model.ProductFirestore
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
+import retrofit2.http.Path
 
-private data class LocalProductSeed(
-    val id: String,
-    val name: String,
-    val price: Double,
-    val type: String,
-    val category: String,
-    val imageRes: String,
-    val desc: String,
-    val imageUrl: String? = null,
-    val valorantWeaponId: String? = null
-)
-
+/**
+ * Repository encargado de cargar el catálogo de skins desde la API oficial de Valorant.
+ *
+ * Esta capa se responsabiliza de:
+ * - Consultar los endpoints remotos.
+ * - Seleccionar una imagen representativa por skin.
+ * - Normalizar tier y precio para el modelo de UI.
+ */
 class LocalProductRepository(private val context: Context) {
-    private val gson = Gson()
     private val TAG = "LocalProductRepository"
 
-    private val weaponsApi: ValorantWeaponsApi by lazy {
+    private val skinsApi: ValorantSkinsApi by lazy {
         Retrofit.Builder()
-            .baseUrl("https://valorant-api.com/v1/")
+            .baseUrl(ValorantApi.BASE_API)
             .client(OkHttpClient.Builder().build())
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(ValorantWeaponsApi::class.java)
+            .create(ValorantSkinsApi::class.java)
     }
 
+    /**
+     * Obtiene el listado de skins y las transforma a [ProductFirestore] para consumo en la UI.
+     */
     suspend fun loadProducts(): List<ProductFirestore> = withContext(Dispatchers.IO) {
-        try {
-            val assetManager = context.assets
-            Log.d(TAG, "Listado assets: ${assetManager.list("")?.joinToString(", ")}")
-            val json = assetManager.open("products.json").bufferedReader().use { it.readText() }
-            val type = object : TypeToken<List<LocalProductSeed>>() {}.type
-            val seeds: List<LocalProductSeed> = try {
-                val reader = com.google.gson.stream.JsonReader(java.io.StringReader(json)).apply { isLenient = true }
-                gson.fromJson<List<LocalProductSeed>>(reader, type) ?: emptyList()
-            } catch (e: Exception) {
-                Log.w(TAG, "Gson lenient parse falló, intentando parseo estricto", e)
-                gson.fromJson(json, type) ?: emptyList()
-            }
-            Log.d(TAG, "products.json encontrado. Seeds parseadas: ${seeds.size}")
-
-            val weaponsById = fetchWeaponsById()
-
-            return@withContext seeds.map { seed ->
-                val resolvedImage = resolveImage(seed, weaponsById)
-                Log.d(TAG, "Seed: ${seed.id}, imageRes: ${seed.imageRes}, resolvedImage: $resolvedImage")
+        runCatching {
+            val skins = skinsApi.getWeaponSkins().data
+            Log.d(TAG, "Skins cargadas desde API: ${skins.size}")
+            skins.mapNotNull { skin ->
+                val name = skin.displayName?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                val image = resolveSkinImage(skin) ?: return@mapNotNull null
+                val tierLabel = resolveTierLabel(skin.contentTierUuid)
                 ProductFirestore(
-                    id = seed.id,
-                    name = seed.name,
-                    price = seed.price,
-                    type = seed.type,
-                    category = seed.category,
-                    image = resolvedImage,
-                    desc = seed.desc
+                    id = skin.uuid,
+                    name = name,
+                    price = resolvePriceForTier(tierLabel),
+                    type = "Skin de arma",
+                    category = tierLabel,
+                    image = image,
+                    desc = "Skin $name de tier $tierLabel."
                 )
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error leyendo assets/products.json", e)
-            return@withContext emptyList<ProductFirestore>()
+        }.getOrElse { error ->
+            Log.e(TAG, "Error cargando skins desde Valorant API", error)
+            emptyList()
         }
     }
 
-    private suspend fun fetchWeaponsById(): Map<String, String> {
-        return runCatching {
-            weaponsApi.getWeapons().data
-                .mapNotNull { weapon ->
-                    val icon = weapon.displayIcon?.takeIf { it.isNotBlank() }
-                    if (icon != null) weapon.uuid to icon else null
-                }
-                .toMap()
-        }.getOrElse { emptyMap() }
+    /**
+     * Selecciona la mejor imagen disponible para una skin.
+     * Prioridad: displayIcon > levels.displayIcon > chromas.displayIcon.
+     */
+    private fun resolveSkinImage(skin: ValorantSkin): String? {
+        val directIcon = skin.displayIcon?.takeIf { it.isNotBlank() }
+        if (directIcon != null) return directIcon
+
+        val levelIcon = skin.levels
+            ?.firstNotNullOfOrNull { it.displayIcon?.takeIf { icon -> icon.isNotBlank() } }
+        if (levelIcon != null) return levelIcon
+
+        return skin.chromas
+            ?.firstNotNullOfOrNull { it.displayIcon?.takeIf { icon -> icon.isNotBlank() } }
     }
 
-    private fun resolveImage(seed: LocalProductSeed, weaponsById: Map<String, String>): String {
-        val remoteUrl = seed.imageUrl?.takeIf { it.isNotBlank() }
-        if (remoteUrl != null) {
-            return remoteUrl
-        }
-
-        val valorantId = seed.valorantWeaponId?.takeIf { it.isNotBlank() }
-        if (valorantId != null) {
-            return weaponsById[valorantId] ?: ValorantApi.weaponImageUrl(valorantId)
-        }
-
-        return buildResourceUri(seed.imageRes)
+    /**
+     * Traduce el UUID del tier a una etiqueta legible para UI.
+     */
+    private fun resolveTierLabel(contentTierUuid: String?): String {
+        val tierId = contentTierUuid?.lowercase() ?: return "Desconocido"
+        return TIER_LABELS_BY_UUID[tierId] ?: "Desconocido"
     }
 
-    private fun buildResourceUri(resourceName: String): String {
-        val resourceId = context.resources.getIdentifier(resourceName, "drawable", context.packageName)
-        return if (resourceId != 0) {
-            "android.resource://${context.packageName}/drawable/$resourceName"
-        } else {
-            // Fallback: look for the image inside assets/valorant_skins/<resourceName>.png
-            // Coil and other image loaders can load URIs like file:///android_asset/...
-            val assetPath = "file:///android_asset/valorant_skins/$resourceName.png"
-            Log.d(TAG, "Drawable no encontrado para '$resourceName', fallback a: $assetPath")
-            assetPath
+    /**
+     * Estima un precio de referencia según el tier (usado solo para catálogo visual).
+     */
+    private fun resolvePriceForTier(tierLabel: String): Double {
+        return when (tierLabel.lowercase()) {
+            "select" -> 875.0
+            "deluxe" -> 1275.0
+            "premium" -> 1775.0
+            "exclusive" -> 2475.0
+            "ultra" -> 2975.0
+            else -> 0.0
         }
     }
 }
 
-private interface ValorantWeaponsApi {
-    @GET("weapons")
-    suspend fun getWeapons(): ValorantWeaponsResponse
+private interface ValorantSkinsApi {
+    @GET("weapons/skins")
+    suspend fun getWeaponSkins(): ValorantSkinsResponse
+
+    @GET("weapons/skins/{weaponSkinUuid}")
+    suspend fun getWeaponSkin(@Path("weaponSkinUuid") weaponSkinUuid: String): ValorantSkinResponse
 }
 
-private data class ValorantWeaponsResponse(
-    val data: List<ValorantWeapon>
+private data class ValorantSkinsResponse(
+    val data: List<ValorantSkin>
 )
 
-private data class ValorantWeapon(
+private data class ValorantSkinResponse(
+    val data: ValorantSkin
+)
+
+private data class ValorantSkin(
     val uuid: String,
+    val displayName: String?,
+    val displayIcon: String?,
+    val contentTierUuid: String?,
+    val levels: List<ValorantSkinLevel>?,
+    val chromas: List<ValorantSkinChroma>?
+)
+
+private data class ValorantSkinLevel(
     val displayIcon: String?
+)
+
+private data class ValorantSkinChroma(
+    val displayIcon: String?
+)
+
+private val TIER_LABELS_BY_UUID = mapOf(
+    "5a629df4-4765-0214-bd40-fbb96542941f" to "Select",
+    "0cebb8be-46d7-c12a-d306-e9907bfc5a25" to "Deluxe",
+    "60bca009-4182-7998-dee7-b8a2558dc369" to "Premium",
+    "e046854e-406c-37f4-6607-19a9ba8426fc" to "Exclusive",
+    "12683d76-48d7-84a3-4e09-6985794f0445" to "Ultra"
 )

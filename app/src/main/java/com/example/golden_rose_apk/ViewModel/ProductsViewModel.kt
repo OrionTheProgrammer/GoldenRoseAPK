@@ -10,6 +10,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
+/**
+ * ViewModel que mantiene el estado reactivo del catálogo de skins.
+ */
 class ProductsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = LocalProductRepository(application)
@@ -23,15 +26,21 @@ class ProductsViewModel(application: Application) : AndroidViewModel(application
         loadProducts()
     }
 
+    /**
+     * Recarga manual del catálogo (pull-to-refresh o navegación).
+     */
     fun refresh() {
         loadProducts()
     }
 
+    /**
+     * Ejecuta la carga asíncrona del catálogo desde el repositorio.
+     */
     fun loadProducts() {
         viewModelScope.launch {
             val result = runCatching { repository.loadProducts() }
             result.onFailure { throwable ->
-                Log.e(TAG, "Error cargando productos desde assets/products.json", throwable)
+                Log.e(TAG, "Error cargando productos desde Valorant API", throwable)
             }
             _products.value = result.getOrElse { emptyList() }
             Log.d(TAG, "Productos cargados: ${_products.value.size}")
