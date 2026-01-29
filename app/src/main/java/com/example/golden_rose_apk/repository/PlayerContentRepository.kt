@@ -65,22 +65,24 @@ class PlayerContentRepository(context: Context) {
         }
     }
 
-    fun getPurchasedCardIds(): Set<String> = storage.getPurchasedCardIds()
+    fun getPurchasedCardIds(userId: String?): Set<String> =
+        storage.getPurchasedCardIds(userId)
 
-    fun getPurchasedTitleIds(): Set<String> = storage.getPurchasedTitleIds()
+    fun getPurchasedTitleIds(userId: String?): Set<String> =
+        storage.getPurchasedTitleIds(userId)
 
-    fun purchaseCard(card: PlayerCard) {
-        storage.purchaseCard(card.uuid)
+    fun purchaseCard(card: PlayerCard, userId: String?) {
+        storage.purchaseCard(card.uuid, userId)
     }
 
-    fun purchaseTitle(title: PlayerTitle) {
-        storage.purchaseTitle(title.uuid)
+    fun purchaseTitle(title: PlayerTitle, userId: String?) {
+        storage.purchaseTitle(title.uuid, userId)
     }
 
-    fun getEquippedTitleId(): String? = storage.getEquippedTitleId()
+    fun getEquippedTitleId(userId: String?): String? = storage.getEquippedTitleId(userId)
 
-    fun setEquippedTitleId(titleId: String?) {
-        storage.setEquippedTitleId(titleId)
+    fun setEquippedTitleId(titleId: String?, userId: String?) {
+        storage.setEquippedTitleId(titleId, userId)
     }
 
     fun downloadPlayerCard(card: PlayerCard, format: PlayerCardFormat): Boolean {
@@ -118,27 +120,35 @@ class PlayerContentRepository(context: Context) {
 private class PlayerContentStorage(context: Context) {
     private val prefs = context.getSharedPreferences("player_content_prefs", Context.MODE_PRIVATE)
 
-    fun getPurchasedCardIds(): Set<String> =
-        prefs.getStringSet("purchased_cards", emptySet()) ?: emptySet()
+    fun getPurchasedCardIds(userId: String?): Set<String> =
+        prefs.getStringSet(purchasedCardsKey(userId), emptySet()) ?: emptySet()
 
-    fun getPurchasedTitleIds(): Set<String> =
-        prefs.getStringSet("purchased_titles", emptySet()) ?: emptySet()
+    fun getPurchasedTitleIds(userId: String?): Set<String> =
+        prefs.getStringSet(purchasedTitlesKey(userId), emptySet()) ?: emptySet()
 
-    fun purchaseCard(cardId: String) {
-        val updated = getPurchasedCardIds().toMutableSet().apply { add(cardId) }
-        prefs.edit().putStringSet("purchased_cards", updated).apply()
+    fun purchaseCard(cardId: String, userId: String?) {
+        val updated = getPurchasedCardIds(userId).toMutableSet().apply { add(cardId) }
+        prefs.edit().putStringSet(purchasedCardsKey(userId), updated).apply()
     }
 
-    fun purchaseTitle(titleId: String) {
-        val updated = getPurchasedTitleIds().toMutableSet().apply { add(titleId) }
-        prefs.edit().putStringSet("purchased_titles", updated).apply()
+    fun purchaseTitle(titleId: String, userId: String?) {
+        val updated = getPurchasedTitleIds(userId).toMutableSet().apply { add(titleId) }
+        prefs.edit().putStringSet(purchasedTitlesKey(userId), updated).apply()
     }
 
-    fun getEquippedTitleId(): String? = prefs.getString("equipped_title", null)
+    fun getEquippedTitleId(userId: String?): String? =
+        prefs.getString(equippedTitleKey(userId), null)
 
-    fun setEquippedTitleId(titleId: String?) {
-        prefs.edit().putString("equipped_title", titleId).apply()
+    fun setEquippedTitleId(titleId: String?, userId: String?) {
+        prefs.edit().putString(equippedTitleKey(userId), titleId).apply()
     }
+
+    private fun purchasedCardsKey(userId: String?): String = "purchased_cards_${userId ?: "guest"}"
+
+    private fun purchasedTitlesKey(userId: String?): String = "purchased_titles_${userId ?: "guest"}"
+
+    private fun equippedTitleKey(userId: String?): String = "equipped_title_${userId ?: "guest"}"
+}
 }
 
 private interface ValorantPlayerContentApi {

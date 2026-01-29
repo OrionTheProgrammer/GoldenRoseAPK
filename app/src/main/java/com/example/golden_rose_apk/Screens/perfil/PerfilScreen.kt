@@ -28,6 +28,7 @@ import androidx.compose.material3.*
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -62,6 +63,7 @@ import com.example.golden_rose_apk.repository.LocalUser
 import com.example.golden_rose_apk.repository.LocalUserRepository
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
 
 
 
@@ -100,6 +102,8 @@ fun PerfilScreen(
     var currentUser by remember { mutableStateOf<LocalUser?>(null) }
     LaunchedEffect(isLoggedIn) {
         currentUser = if (isLoggedIn) userRepository.getCurrentUser() else null
+        playerContentViewModel.updateActiveUser()
+        playerContentViewModel.refreshLocalState()
     }
     val email = currentUser?.email.orEmpty()
 
@@ -126,16 +130,20 @@ fun PerfilScreen(
     val profilePrefs = remember {
         context.getSharedPreferences("profile_prefs", Context.MODE_PRIVATE)
     }
-    var profileImageUri by remember {
-        mutableStateOf(profilePrefs.getString("profile_image_uri", null)?.toUri())
+    val profileImageKey = remember(currentUser?.id) {
+        "profile_image_uri_${currentUser?.id ?: "guest"}"
+    }
+    var profileImageUri by remember(profileImageKey) {
+        mutableStateOf(profilePrefs.getString(profileImageKey, null)?.toUri())
     }
 
     // Launcher para abrir galería
     val galleryLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        profileImageUri = uri
-        profilePrefs.edit().putString("profile_image_uri", uri?.toString()).apply()
+        val persistedUri = uri?.let { saveUriToProfile(context, it) }
+        profileImageUri = persistedUri
+        profilePrefs.edit().putString(profileImageKey, persistedUri?.toString()).apply()
     }
 
     // Launcher para tomar foto
@@ -145,7 +153,7 @@ fun PerfilScreen(
         if (bitmap != null) {
             val uri = saveBitmapToCache(context, bitmap)
             profileImageUri = uri
-            profilePrefs.edit().putString("profile_image_uri", uri.toString()).apply()
+            profilePrefs.edit().putString(profileImageKey, uri.toString()).apply()
         }
     }
 
@@ -193,18 +201,10 @@ fun PerfilScreen(
 
     LaunchedEffect(Unit) {
         playerContentViewModel.titleStoreUpdates.collect {
-            if (pushNotificationsEnabled) {
-                notificationHelper.showNotification(
-                    title = "Tienda de títulos",
-                    message = "La tienda de títulos se actualizó."
-                )
-            } else {
-                Toast.makeText(
-                    context,
-                    "La tienda de títulos se actualizó",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+            notificationHelper.showNotification(
+                title = "Tienda de títulos",
+                message = "La tienda de títulos se actualizó."
+            )
         }
     }
 
@@ -220,6 +220,12 @@ fun PerfilScreen(
                 )
                 profilePrefs.edit().putLong("last_skin_reco", now).apply()
             }
+        } else if (!pushNotificationsEnabled) {
+            Toast.makeText(
+                context,
+                "Activa las notificaciones para recibir recomendaciones",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -418,6 +424,23 @@ fun PerfilScreen(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
             )
+            var showAllCards by rememberSaveable { mutableStateOf(false) }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Mostrando ${if (showAllCards) visibleCards.size else visibleCards.take(10).size} de ${visibleCards.size}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                TextButton(onClick = { showAllCards = !showAllCards }) {
+                    Text(if (showAllCards) "Ver menos" else "Ver todas")
+                }
+            }
             Text(
                 text = "Formato de tarjeta",
                 style = MaterialTheme.typography.bodySmall,
@@ -483,7 +506,8 @@ fun PerfilScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp)
             ) {
-                items(visibleCards.take(10)) { card ->
+                val cardsToShow = if (showAllCards) visibleCards else visibleCards.take(10)
+                items(cardsToShow) { card ->
                     val isPurchased = purchasedCardIds.contains(card.uuid)
                     val interactionSource = remember { MutableInteractionSource() }
                     val pressed by interactionSource.collectIsPressedAsState()
@@ -789,7 +813,7 @@ fun ThemeOptionRow(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 fun saveBitmapToCache(context: Context, bitmap: Bitmap): Uri {
-    val file = File(context.cacheDir, "profile_${System.currentTimeMillis()}.jpg")
+    val file = File(context.filesDir, "profile_${System.currentTimeMillis()}.jpg")
     val out = FileOutputStream(file)
     bitmap.compress(Bitmap.CompressFormat.JPEG, 100, out)
     out.flush()
@@ -798,3 +822,17 @@ fun saveBitmapToCache(context: Context, bitmap: Bitmap): Uri {
 }
 
 private const val SKIN_RECO_INTERVAL_MS = 5 * 60 * 1000L
+
+private fun saveUriToProfile(context: Context, uri: Uri): Uri? {
+    return try {
+        val file = File(context.filesDir, "profile_${System.currentTimeMillis()}.jpg")
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(file).use { output ->
+                input.copyTo(output)
+            }
+        }
+        file.toUri()
+    } catch (error: IOException) {
+        null
+    }
+}

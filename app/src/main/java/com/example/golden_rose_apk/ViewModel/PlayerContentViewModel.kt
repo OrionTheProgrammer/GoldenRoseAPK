@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.golden_rose_apk.model.PlayerCard
 import com.example.golden_rose_apk.model.PlayerCardFormat
 import com.example.golden_rose_apk.model.PlayerTitle
+import com.example.golden_rose_apk.repository.LocalUserRepository
 import com.example.golden_rose_apk.repository.PlayerContentRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
 class PlayerContentViewModel(application: Application) : AndroidViewModel(application) {
+    private val userRepository = LocalUserRepository(application)
     private val repository = PlayerContentRepository(application)
 
     private val _playerCards = MutableStateFlow<List<PlayerCard>>(emptyList())
@@ -47,8 +49,10 @@ class PlayerContentViewModel(application: Application) : AndroidViewModel(applic
     val titleStoreUpdates: SharedFlow<Unit> = _titleStoreUpdates
 
     private var titleRotationIndex = 0
+    private val _activeUserId = MutableStateFlow<String?>(null)
 
     init {
+        updateActiveUser()
         refreshContent()
         refreshLocalState()
         startTitleRotation()
@@ -63,23 +67,24 @@ class PlayerContentViewModel(application: Application) : AndroidViewModel(applic
     }
 
     fun refreshLocalState() {
-        _purchasedCardIds.value = repository.getPurchasedCardIds()
-        _purchasedTitleIds.value = repository.getPurchasedTitleIds()
-        _equippedTitleId.value = repository.getEquippedTitleId()
+        val userId = _activeUserId.value
+        _purchasedCardIds.value = repository.getPurchasedCardIds(userId)
+        _purchasedTitleIds.value = repository.getPurchasedTitleIds(userId)
+        _equippedTitleId.value = repository.getEquippedTitleId(userId)
     }
 
     fun purchaseCard(card: PlayerCard) {
-        repository.purchaseCard(card)
+        repository.purchaseCard(card, _activeUserId.value)
         refreshLocalState()
     }
 
     fun purchaseTitle(title: PlayerTitle) {
-        repository.purchaseTitle(title)
+        repository.purchaseTitle(title, _activeUserId.value)
         refreshLocalState()
     }
 
     fun equipTitle(titleId: String?) {
-        repository.setEquippedTitleId(titleId)
+        repository.setEquippedTitleId(titleId, _activeUserId.value)
         refreshLocalState()
     }
 
@@ -93,6 +98,10 @@ class PlayerContentViewModel(application: Application) : AndroidViewModel(applic
 
     fun setCardCategory(category: String) {
         _selectedCardCategory.value = category
+    }
+
+    fun updateActiveUser() {
+        _activeUserId.value = userRepository.getCurrentUserId()
     }
 
     private fun startTitleRotation() {
